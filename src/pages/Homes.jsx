@@ -1,0 +1,9 @@
+import { useState } from 'react';
+import { allPages, get, post, put, remove } from '../api';
+import { useResource } from '../hooks/useResource';
+import { ActionForm, ActionButton, Field, Resource, Empty } from '../components/Common';
+export default function Homes() {
+  const homes = useResource(() => allPages('/homes'));
+  const [editing, setEditing] = useState(null);
+  return <><h1>My homes</h1><p className="muted">Keep the address where your service will take place up to date.</p><section className="card"><h2>{editing ? 'Edit home' : 'Add a home'}</h2><ActionForm key={editing?.id || 'new'} submit={editing ? 'Update home' : 'Add home'} onSubmit={values => editing ? put(`/homes/${editing.id}`, values) : post('/homes', values)} onSuccess={() => { homes.reload(); setEditing(null); }}><Field name="name" label="Home name" required defaultValue={editing?.name || ''}/><Field name="city" label="City" required defaultValue={editing?.city || ''}/><Field name="address" label="Address" type="textarea" required defaultValue={editing?.address || ''}/></ActionForm>{editing && <button onClick={() => setEditing(null)}>Cancel editing</button>}</section><Resource resource={homes}>{rows => !rows.length ? <Empty>You haven't added a home yet.</Empty> : <div className="grid">{rows.map(home => <article className="card" key={home.id}><h2>{home.name}</h2><p>{home.city}</p><p>{home.address}</p><p>{home.active ? 'Active' : 'Inactive'}</p><div className="inline-links"><ActionButton action={() => get(`/homes/${home.id}`)} onSuccess={setEditing}>Edit</ActionButton>{home.active && <ActionButton action={() => remove(`/homes/${home.id}`)} onSuccess={homes.reload} confirm={`Deactivate ${home.name}? It will no longer be available for new bookings.`}>Deactivate</ActionButton>}</div></article>)}</div>}</Resource></>;
+}
