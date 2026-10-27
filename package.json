@@ -3,7 +3,24 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "scripts": { "dev": "vite --host 127.0.0.1", "build": "vite build", "preview": "vite preview --host 127.0.0.1", "test": "node --test tests/*.test.js" },
-  "dependencies": { "axios": "^1.13.0", "lucide-react": "^0.468.0", "react": "^19.0.0", "react-dom": "^19.0.0", "react-router-dom": "^7.1.0" },
-  "devDependencies": { "@vitejs/plugin-react": "^5.0.0", "vite": "^7.0.0" }
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "node tests/browser-check.mjs",
+    "inventory": "node docs/generate-inventory.mjs"
+  },
+  "dependencies": {
+    "axios": "^1.13.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "playwright": "^1.64.1",
+    "vite": "^7.0.0"
+  }
 }
