@@ -12,8 +12,9 @@ import {
   ProviderProfile,
   ProviderServices,
   ProviderAvailability,
-  ProviderReschedules,
+  ProviderDetails,
 } from "./pages/Provider";
+import { Reschedules, RescheduleDetails } from "./pages/Reschedules";
 import { AdminUsers, AdminProviders, AdminCategories } from "./pages/Admin";
 export default function App() {
   return (
@@ -28,12 +29,17 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="services" element={<Services />} />
           <Route path="services/:id" element={<ServiceDetails />} />
+          <Route path="providers/:id" element={<ProviderDetails />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="bookings" element={<Bookings />} />
           <Route path="bookings/:id" element={<BookingDetails />} />
           <Route path="account" element={<Account />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="reviews" element={<Reviews />} />
+          <Route element={<ProtectedRoute roles={["HOMEOWNER", "PROVIDER"]} />}>
+            <Route path="reschedules" element={<Reschedules />} />
+            <Route path="reschedules/:id" element={<RescheduleDetails />} />
+          </Route>
           <Route element={<ProtectedRoute roles={["HOMEOWNER"]} />}>
             <Route path="homes" element={<Homes />} />
             <Route path="favorites" element={<Favorites />} />
@@ -46,10 +52,7 @@ export default function App() {
               path="provider/availability"
               element={<ProviderAvailability />}
             />
-            <Route
-              path="provider/reschedules"
-              element={<ProviderReschedules />}
-            />
+            <Route path="provider/reschedules" element={<Reschedules />} />
           </Route>
           <Route element={<ProtectedRoute roles={["ADMIN"]} />}>
             <Route path="admin/users" element={<AdminUsers />} />
