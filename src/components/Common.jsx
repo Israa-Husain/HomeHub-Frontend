@@ -1,7 +1,8 @@
+import { formatDateTime, formatAppointment } from "../utils/booking";
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { errorMessage } from "../api/client";
-import { label, price } from "../utils/booking";
+import { label, price, bookingGuidance } from "../utils/booking";
 export function Notice({ children, kind = "info" }) {
   return children ? (
     <div
@@ -17,8 +18,17 @@ export function Status({ value }) {
     <span className={`badge ${value?.toLowerCase()}`}>{label(value)}</span>
   );
 }
-export function Resource({ resource, children }) {
-  if (resource.loading) return <p role="status">Loading…</p>;
+export function Resource({ resource, children, keepContent = false }) {
+  if (keepContent && resource.data !== null)
+    return (
+      <>
+        {resource.loading && <Loading label="Refreshing your workspace…" compact />}
+        <Notice kind="error">{resource.error}</Notice>
+        {resource.error && <button onClick={resource.reload}>Try again</button>}
+        {children(resource.data)}
+      </>
+    );
+  if (resource.loading) return <Loading />;
   if (resource.error)
     return (
       <>
@@ -28,23 +38,48 @@ export function Resource({ resource, children }) {
     );
   return children(resource.data);
 }
+export function Loading({ label = "Loading your workspace…", compact = false }) {
+  return <div className={`loading-state ${compact ? "compact" : ""}`} role="status" aria-live="polite">
+    <span className="loading-spinner" aria-hidden="true" /><span>{label}</span>
+  </div>;
+}
 export function Empty({ children = "There is nothing here yet." }) {
-  return <p className="empty">{children}</p>;
+  return <div className="empty"><span className="empty-symbol" aria-hidden="true">◇</span><div>{children}</div></div>;
+}
+export function Pagination({ result, page, setPage }) {
+  return (
+    <div className="pagination">
+      <button disabled={page === 0} onClick={() => setPage(page - 1)}>
+        Previous
+      </button>
+      <span>
+        Page {page + 1} of {Math.max(1, result.totalPages)}
+      </span>
+      <button
+        disabled={page + 1 >= result.totalPages}
+        onClick={() => setPage(page + 1)}
+      >
+        Next
+      </button>
+    </div>
+  );
 }
 export function Field({
   name,
   label: title,
   type = "text",
   options,
+  hint,
   ...props
 }) {
   const generatedId = useId();
   const id = props.id || `${name}-${generatedId}`;
+  const describedBy = [props["aria-describedby"], hint && `${id}-hint`].filter(Boolean).join(" ") || undefined;
   return (
     <label className="field" htmlFor={id}>
-      <span>{title}</span>
+      <span>{title}{props.required && <span className="required-marker" aria-hidden="true"> *</span>}</span>
       {options ? (
-        <select id={id} name={name} {...props}>
+        <select id={id} name={name} {...props} aria-describedby={describedBy}>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -52,10 +87,11 @@ export function Field({
           ))}
         </select>
       ) : type === "textarea" ? (
-        <textarea id={id} name={name} rows="3" {...props} />
+        <textarea id={id} name={name} rows="3" {...props} aria-describedby={describedBy} />
       ) : (
-        <input id={id} name={name} type={type} {...props} />
+        <input id={id} name={name} type={type} {...props} aria-describedby={describedBy} />
       )}
+      {hint && <small id={`${id}-hint`} className="field-hint">{hint}</small>}
     </label>
   );
 }
@@ -66,7 +102,10 @@ export function ActionForm({
   success = "Your changes have been saved.",
   className = "",
   onSuccess,
+  pending = "Saving...",
+  submitDisabled = false,
 }) {
+  const feedback = useRef(null);
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -74,7 +113,7 @@ export function ActionForm({
   async function handle(event) {
     event.preventDefault();
     const form = event.currentTarget;
-    if (lock.current) return;
+    if (lock.current || submitDisabled) return;
     lock.current = true;
     setBusy(true);
     setError("");
@@ -84,8 +123,8 @@ export function ActionForm({
         Object.fromEntries(new FormData(form)),
         form,
       );
-      setMessage(typeof success === "function" ? success(result) : success);
       await onSuccess?.(result);
+      setMessage(typeof success === "function" ? success(result) : success);
     } catch (failure) {
       const validation =
         failure.response?.data?.message?.match(/^([a-zA-Z]+): (.+)$/);
@@ -102,22 +141,23 @@ export function ActionForm({
     } finally {
       lock.current = false;
       setBusy(false);
+      requestAnimationFrame(() => feedback.current?.focus());
     }
   }
   return (
     <form
       onSubmit={handle}
       onInput={(event) => event.target.setCustomValidity?.("")}
+      aria-busy={busy}
       className={`form ${className}`}
     >
       <fieldset disabled={busy}>
         {children}
-        <button className="primary" type="submit">
-          {busy ? "Saving…" : submit}
+        <button className="primary" type="submit" disabled={submitDisabled}>
+          {busy ? pending : submit}
         </button>
       </fieldset>
-      <Notice kind="error">{error}</Notice>
-      <Notice kind="success">{message}</Notice>
+      {(error || message) && <div ref={feedback} tabIndex={-1} className="form-feedback"><Notice kind={error ? "error" : "success"}>{error || message}</Notice></div>}
     </form>
   );
 }
@@ -125,6 +165,7 @@ export function ActionButton({
   action,
   children,
   confirm,
+  disabled = false,
   onSuccess,
   className = "",
 }) {
@@ -136,7 +177,7 @@ export function ActionButton({
     <span className="action">
       <button
         className={className}
-        disabled={busy}
+        disabled={busy || disabled}
         onClick={async () => {
           if (lock.current || (confirm && !window.confirm(confirm))) return;
           lock.current = true;
@@ -148,7 +189,7 @@ export function ActionButton({
             setDone(true);
             await onSuccess?.(result);
           } catch (failure) {
-            setError(errorMessage(failure));
+            setError(failure.response || failure.request ? errorMessage(failure) : failure.message);
           } finally {
             lock.current = false;
             setBusy(false);
@@ -162,15 +203,16 @@ export function ActionButton({
     </span>
   );
 }
-export function ServiceCard({ service }) {
+export function ServiceCard({ service, children }) {
   return (
-    <article className="card">
-      <small>{service.categoryName}</small>
+    <article className="card service-card">
+      <small className="eyebrow">{service.categoryName}</small>
       <h2>
         <Link to={`/services/${service.id}`}>{service.name}</Link>
       </h2>
       <p>{service.description || "No description provided."}</p>
-      <p className="muted">{service.providerName}</p>
+      <p className="muted">By <Link to={`/providers/${service.providerId}`}>{service.providerName}</Link></p>
+      {service.emergencyEligible && <p><span className="badge emergency">Emergency available · +20%</span></p>}
       <div className="card-footer">
         <strong>{price(service.price)}</strong>
         <span>{service.durationMinutes} minutes</span>
@@ -178,10 +220,11 @@ export function ServiceCard({ service }) {
       <Link className="button" to={`/services/${service.id}`}>
         View service
       </Link>
+      {children}
     </article>
   );
 }
-export function BookingCard({ booking }) {
+export function BookingCard({ booking, children }) {
   return (
     <article className="card">
       <div className="card-footer">
@@ -193,14 +236,24 @@ export function BookingCard({ booking }) {
       </h2>
       <p>{booking.providerName}</p>
       <p>
-        {booking.bookingDate} · {booking.startTime}–{booking.endTime}
+        {formatAppointment(booking.bookingDate, booking.startTime, booking.endTime)}
       </p>
+      <p className="booking-guidance">{bookingGuidance(booking)}</p>
       <strong>{price(booking.finalPrice)}</strong>
+      {booking.bookingType === "EMERGENCY" && <p className="field-hint">Emergency · price includes 20% surcharge</p>}
+      <Link className="button" to={`/bookings/${booking.id}`}>View booking</Link>
+      {children}
       {booking.status === "PENDING" && booking.responseDeadline && (
         <p className="muted">
-          Response due: {booking.responseDeadline.replace("T", " ")}
+          Response due: {formatDateTime(booking.responseDeadline)}
         </p>
       )}
+      {booking.reportDeadline &&
+        ["CONFIRMED", "AWAITING_REPORT"].includes(booking.status) && (
+          <p className="muted">
+            Report due: {formatDateTime(booking.reportDeadline)}
+          </p>
+        )}
     </article>
   );
 }

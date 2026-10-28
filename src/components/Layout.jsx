@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
 import {
   House,
+  Menu,
+  X,
   CalendarDays,
   Bell,
   UserRound,
@@ -17,13 +20,14 @@ const common = [
   ["/dashboard", "Overview", LayoutDashboard],
   ["/services", "Browse services", Wrench],
   ["/bookings", "Bookings", CalendarDays],
-  ["/reviews", "Provider reviews", ListChecks],
+  ["/reviews", "Reviews", ListChecks],
 ];
 const roleLinks = {
   HOMEOWNER: [
     ["/homes", "My homes", House],
     ["/favorites", "Favorites", Heart],
     ["/waitlist", "Waitlist", ListChecks],
+    ["/reschedules", "Reschedule requests", CalendarDays],
   ],
   PROVIDER: [
     ["/provider/profile", "Business profile", UserRound],
@@ -33,12 +37,13 @@ const roleLinks = {
   ],
   ADMIN: [
     ["/admin/users", "Users", UserRound],
-    ["/admin/providers", "Provider approval", ListChecks],
+    ["/admin/providers", "Provider applications", ListChecks],
     ["/admin/categories", "Categories", Settings],
   ],
 };
 export default function Layout() {
   const { user, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
   const { count } = useNotifications();
   return (
     <>
@@ -46,6 +51,9 @@ export default function Layout() {
         Skip to content
       </a>
       <header className="topbar">
+        {user && <button className="mobile-menu" aria-expanded={menuOpen} aria-controls="workspace-nav" aria-label={menuOpen ? "Close workspace navigation" : "Open workspace navigation"} onClick={() => setMenuOpen(!menuOpen)}>
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}<span>Menu</span>
+        </button>}
         <Link to="/" className="brand">
           <House size={24} />
           HomeHub
@@ -79,16 +87,15 @@ export default function Layout() {
       </header>
       <div className={user ? "app-shell" : "public-shell"}>
         {user && (
-          <aside className="sidebar">
+          <aside className={`sidebar ${menuOpen ? "is-open" : ""}`} id="workspace-nav">
             <p className="role">{user.role.toLowerCase()} workspace</p>
             <nav aria-label="Workspace navigation">
               {[
-                ...common,
-                ...roleLinks[user.role],
+                ...(user.role === "ADMIN" ? [common[0], ...roleLinks.ADMIN, ...common.slice(1)] : [...common, ...(roleLinks[user.role] || [])]),
                 ["/notifications", "Notifications", Bell],
                 ["/account", "Account", UserRound],
               ].map(([to, name, Icon]) => (
-                <NavLink key={to} to={to}>
+                <NavLink key={to} to={to} onClick={() => setMenuOpen(false)}>
                   <Icon size={17} />
                   {name}
                 </NavLink>
@@ -97,10 +104,15 @@ export default function Layout() {
           </aside>
         )}
         <main id="main">
+          {user && (
+            <p className="timezone-note">
+              Appointments and deadlines use Bahrain time (UTC+3).
+            </p>
+          )}
           <Outlet />
         </main>
       </div>
-      <footer>HomeHub · Home services, in one place.</footer>
+      <footer>HomeHub · Home services across Bahrain.</footer>
     </>
   );
 }
