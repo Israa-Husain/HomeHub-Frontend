@@ -16,7 +16,9 @@ api.interceptors.response.use(
   (error) => {
     if (
       error.response?.status === 401 &&
-      !error.config?.url.startsWith("/auth/")
+      !error.config?.url?.startsWith("/auth/") &&
+      sessionStorage.getItem(TOKEN_KEY) &&
+      (error.config?.headers?.get?.("Authorization") || error.config?.headers?.Authorization) === `Bearer ${sessionStorage.getItem(TOKEN_KEY)}`
     ) {
       sessionStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event("homehub:unauthorized"));
