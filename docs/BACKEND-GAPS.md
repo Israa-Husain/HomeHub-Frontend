@@ -1,4 +1,6 @@
-# Backend gaps and concrete integration proposal
+# Historical pre-Phase-1 gap analysis
+
+This document is retained as the original review record. Its missing-API findings and proposed work below have been superseded by Phases 1–4 and the booking eligibility correction. Use [PHASE-5-INTEGRATION.md](PHASE-5-INTEGRATION.md) and [API-INVENTORY.md](API-INVENTORY.md) for current functionality and remaining limitations. Do not treat the old workarounds below as the current frontend design.
 
 These findings come from the actual controller, DTO, entity, repository, security, and service sources and the running OpenAPI document. No backend files were changed. Backend changes require the project owner's approval.
 

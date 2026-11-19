@@ -1,107 +1,57 @@
-# HomeHub Frontend
+# HomeHub frontend
 
-A React and JavaScript frontend for the existing HomeHub Project 3 Spring Boot API. It uses Vite, React Router, Axios, React Context, Lucide icons, native forms, and plain CSS. All displayed records come from the backend. There are no mock API handlers or fabricated platform statistics.
-
-**Status:** builds successfully and covers the available controller operations. Full end-to-end acceptance is pending verified test accounts and the backend gaps listed in [BACKEND-GAPS.md](docs/BACKEND-GAPS.md). This is not a claim that all authenticated workflows have passed integration testing.
+React, Vite, Axios and React Router frontend for HomeHub's Bahrain home services.
 
 ## Run locally
 
-Use Node.js 22.12+ (Node 24 was used for verification).
+Start Auth on port 8081, Booking on 8082 and Notification on 8083 using the backend repository. Run these commands from the frontend repository:
 
 ```powershell
 cd C:\Users\HP\jdb\projects\HomeHub-Frontend
-npm.cmd install
-Copy-Item .env.example .env
+npm.cmd ci
 npm.cmd run dev
 ```
 
-Open **http://127.0.0.1:5173**. Keep the existing Spring Boot backend running on **http://localhost:8070** with its normal PostgreSQL, JWT, and mail environment settings. Start the backend using its existing IntelliJ run configuration or the instructions in its own README. This frontend does not change the backend, database schema, seed profile, or server configuration.
+Open `http://localhost:5173`. Port 5173 is strict and is the origin all three backend services allow by default. If dependencies are already installed, skip `npm.cmd ci`.
 
-On Windows, `npm.cmd` avoids PowerShell execution-policy restrictions on `npm.ps1`. On other shells use `npm`.
+| Vite variable | Local default |
+|---|---|
+| `VITE_AUTH_API_BASE_URL` | `http://localhost:8081` |
+| `VITE_BOOKING_API_BASE_URL` | `http://localhost:8082` |
+| `VITE_NOTIFICATION_API_BASE_URL` | `http://localhost:8083` |
 
-## Configuration
+The defaults also appear in `.env.example`. Use a local Vite env file or the environment of the AWS build to override these public service URLs. Use HTTPS URLs for an HTTPS deployment and allow the deployed frontend origin on each service. Vite embeds these values at build time, so rebuild after changing them. Keep all credentials out of `VITE_*` variables. If you use `npm.cmd run preview`, allow `http://localhost:4173` on each service as well.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `VITE_API_BASE_URL` | `/api` | Browser API base URL, including `/api` |
-| `API_PROXY_TARGET` | `http://localhost:8070` | Vite development/preview proxy destination |
-
-The Vite proxy forwards `/api` and `/uploads`, allowing local use without backend CORS changes. Restart Vite after environment changes. Production hosting must serve `dist`, fall back to `index.html` for React routes, and reverse-proxy `/api` and `/uploads` to Spring Boot. An absolute API URL requires appropriate backend CORS configuration, which is not present in the inspected security setup. Never put secrets in `VITE_*` variables; they are public bundle configuration.
-
-```powershell
-npm.cmd run build
-npm.cmd run preview
-```
-
-Preview runs at http://127.0.0.1:4173. It is for local build inspection, not a production server.
-
-## Project structure
-
-```text
-src/
-  api/             Axios instance, token interceptor, request helpers, auth/booking APIs
-  components/      Layout, form fields, action forms/buttons, cards, notices, badges
-  context/         Authentication and persistent/live notification state
-  hooks/           Loading/error/data lifecycle helper
-  pages/           Public, auth, homeowner, provider, and admin screens
-  routes/          Login and role guards
-  styles/          Responsive global CSS
-  utils/           Booking rules and display helpers
-  App.jsx          Route definitions
-  main.jsx         Provider composition and entry point
-docs/              API inventory, OpenAPI snapshot, backend gaps, verification
-tests/             Contract checks, booking validation checks, real-browser smoke checks
-```
-
-Page files group closely related screens to keep the project small. The API helpers return response data, including handling empty 204 responses without attempting JSON parsing. Forms preserve their inputs on errors, lock submissions, use native constraints, display backend messages, and attach field-specific server validation to the corresponding input when supplied as `field: message`.
+Run `npm.cmd run build` and `npm.cmd test` from the same folder. With the dev server running, `npm.cmd run test:browser` runs public-route and validation checks. It checks live Auth failures when Auth is reachable and runs the read-only signed-in role checks when all three services and the corresponding `TEST_<ROLE>_EMAIL` and `TEST_<ROLE>_PASSWORD` are available.
 
 ## Roles and routes
 
-| Role | Routes and operations |
+| Access | Main routes |
 |---|---|
 | Public | `/`, `/login`, `/register`, `/verify`, `/forgot-password`, `/reset-password` |
-| All authenticated roles | `/dashboard`, `/services`, `/services/:id`, `/bookings`, `/bookings/:id`, `/account`, `/notifications`, `/reviews` |
-| HOMEOWNER | `/homes`, `/favorites`, `/waitlist`; booking requests, cancellations, reschedule requests, completed-booking reviews |
-| PROVIDER | `/provider/profile`, `/provider/services`, `/provider/availability`, `/provider/reschedules`; assigned booking decisions, service reports and private assessments |
-| ADMIN | `/admin/users`, `/admin/providers`, `/admin/categories`; user deactivation, provider approval by profile ID, categories; authorized booking lookup/status changes/cancellation |
+| Authenticated | `/dashboard`, `/services`, `/services/:id`, `/providers/:id`, `/bookings`, `/bookings/:id`, `/account`, `/notifications`, `/reviews` |
+| Homeowner | `/homes`, `/favorites`, `/waitlist`, `/reschedules`, `/reschedules/:id` |
+| Provider | `/provider/profile`, `/provider/services`, `/provider/availability`, `/provider/reschedules`; also shared reschedule list/detail |
+| Admin | `/admin/users`, `/admin/providers`, `/admin/categories` |
 
-Browsing is protected because the actual backend requires authentication. Admin booking lists return the current user's own bookings; the UI offers lookup by booking ID for administrative access. Service, provider approval, review, and reschedule ID entry screens are honest workarounds for missing lookup endpoints, not searchable directories.
+Marketplace reads remain authenticated. Role guards complement existing backend authorization. JWT is held in sessionStorage and sent in a Bearer header. Protected 401 responses from the current token clear the session; stale responses cannot clear a newer token. Connection failures during restoration offer retry. There is no refresh-token or server-side logout/revocation endpoint.
 
-## Authentication
+Registration sends the existing `firstname` spelling. Verification emails target the backend URL and may return JSON; return to frontend login afterward. The frontend also has a manual verification-token form. Password-reset mail supplies a token for `/reset-password`. Delivery depends on the Notification service mail configuration; no resend-verification endpoint exists.
 
-Login returns `{token,type}`. The frontend obtains the role and current account status from `GET /api/users/profile`. The token is stored in `sessionStorage` for same-tab refresh restoration and attached as `Authorization: Bearer ...`. Closing the tab ends local persistence. Logout clears local session state; the backend has no logout/revocation or refresh-token endpoint. All application JavaScript can access session storage, so protect the deployment against script injection and use HTTPS. No tokens or passwords are logged.
+## Business rules and API limits
 
-Protected 401 responses clear the session. A 403 displays a permission error. The backend loads the user from the database for every valid JWT and rejects inactive accounts. Route guards are only a user-interface layer; authorization remains server-side.
+Prices use **BHD with three decimal places**. Dates/deadlines/countdowns display **Asia/Bahrain (UTC+3)**, including offset-free backend timestamps. API payload formats are unchanged. The backend's local clock must also be Bahrain-equivalent.
 
-Registration uses the actual `firstname` field spelling. Verification emails link to the backend's `/api/auth/verify?token=...`, which directly verifies the email and returns JSON. Users can then sign in. `/verify` also accepts a token manually or as `?token=...`. Password-reset emails contain a token rather than a frontend link; enter it at `/reset-password`.
+Normal bookings, reschedules and waitlists need at least 24 hours' notice; emergency bookings require a future time and add 20%. Requests/claims start pending and require provider acceptance. Availability is rechecked by the server. Reports require an ended confirmed/awaiting-report appointment and precede completion. Reviews require a completed booking. Assessment reads are assigned-provider-only on pending bookings and writes are assigned-provider-only on completed bookings.
 
-## Booking and after-service workflows
+No provider rejection, service/user/category reactivation, portfolio image upload, report/review editing, global admin booking directory, fabricated historical snapshots or invented notification timestamps were added. Inactive homes cannot be fetched for historical address display. Category lists include active records only. Completed-booking assessment reads are unsupported, so duplicate protection after revisiting remains server-side. Timer-driven transitions, reminders and waitlist offer advancement depend on backend scheduling.
 
-Select a service, an active owned home, date, requested start time, and booking type. The API omits the provider ID from services, so available slots cannot currently be discovered automatically from that selection. The frontend labels the time as requested and the price as estimated. The backend validates notice, provider/service eligibility, time off, overlaps, offers, and final price. Normal bookings require 24 hours' notice. Emergency estimates include 20%; eligibility is checked on submission and cannot be configured per service through the current API.
+## Historical monolith handoff
 
-Provider transition buttons follow the implemented state graph. Completion is offered to providers only after a report has been retrieved successfully. Reports can be submitted after the appointment ends for confirmed/awaiting-report bookings. Admin completion is sent to the backend, which checks for the report. Assessments are visible only to providers reviewing pending bookings and submitted only after completion. Reviews are submitted only for completed homeowner bookings; duplicate checks remain server-side.
+These documents and the Phase 6 API check record the previous integration with port 8070.
 
-Waitlist joining is available from the service booking form. Claim/leave actions use current backend statuses; claims are confirmed only after successful API responses. Expiration countdowns are unavailable because the response omits the timestamp.
-
-## Notifications
-
-Notification history and unread counts are loaded from persistent endpoints. The SSE implementation uses streaming `fetch` because native `EventSource` cannot attach the required Bearer header. It parses SSE records across chunks, refreshes history on events, reconnects with bounded exponential backoff, and aborts connections on logout/unmount. A 60-second refresh picks up scheduled status changes and keeps history available during reconnects. No browser task reproduces backend scheduling or email delivery.
-
-## Verification
-
-```powershell
-npm.cmd test
-npm.cmd run build
-# With frontend and backend running, and Chrome installed:
-npm.cmd run test:browser
-```
-
-`BROWSER_CHANNEL=msedge` can select installed Edge. `FRONTEND_URL` overrides the browser-test base URL. Optional `TEST_HOMEOWNER_EMAIL`, `TEST_HOMEOWNER_PASSWORD`, `TEST_PROVIDER_EMAIL`, `TEST_PROVIDER_PASSWORD`, `TEST_ADMIN_EMAIL`, and `TEST_ADMIN_PASSWORD` environment variables enable authenticated browser checks. Do not commit credentials. Authenticated browser checks verify sign-in, refresh restoration, role pages, and sign-out; they do not claim full mutation workflow coverage.
-
-The browser checks use the real backend. No records are created by the default checks; they exercise required fields, invalid login/verification, and invalid sessions. Reports and screenshots are saved under ignored `test-results/`. See [VERIFICATION.md](docs/VERIFICATION.md) for observed results and the remaining manual workflow matrix.
-
-## API documentation
-
-[API-INVENTORY.md](docs/API-INVENTORY.md) accounts for all **59 operations across 16 controllers**, including roles, request parameters, request/response schema names, controller map fields, and consuming screens. [openapi.json](docs/openapi.json) preserves the full schema definitions from the live backend. `npm.cmd run inventory` refreshes these documents when the sibling backend source and server are available. Review service-level authorization as well as OpenAPI annotations when updating contracts.
-
-This is a separate Git repository. No GitHub remote or push was configured.
+- [Final verification and remaining blockers](docs/STEP-6-HANDOFF.md)
+- [Original backend/frontend startup and database identity](docs/ORIGINAL-ENVIRONMENT.md)
+- [Role-by-role manual testing guide](docs/MANUAL-TESTING-GUIDE.md)
+- [API inventory](docs/API-INVENTORY.md), [machine-readable contracts](docs/backend-contracts.json), and [OpenAPI snapshot](docs/openapi.json)
+- Earlier improvement steps: [1](docs/STEP-1-DESIGN.md), [2](docs/STEP-2-AUTH-ACCOUNT.md), [3](docs/STEP-3-HOMEOWNER.md), [4](docs/STEP-4-PROVIDER.md), [5](docs/STEP-5-ADMIN.md)

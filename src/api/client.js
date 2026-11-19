@@ -1,31 +1,53 @@
 import axios from "axios";
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(
-  /\/$/,
-  "",
-);
+
+function serviceBase(value, fallback) {
+  return (value?.trim() || fallback).replace(/\/+$/, "").replace(/\/api$/, "");
+}
+
+const authBase = serviceBase(import.meta.env.VITE_AUTH_API_BASE_URL, "http://localhost:8081");
+const bookingBase = serviceBase(import.meta.env.VITE_BOOKING_API_BASE_URL, "http://localhost:8082");
+const notificationBase = serviceBase(import.meta.env.VITE_NOTIFICATION_API_BASE_URL, "http://localhost:8083");
+
+export const notificationStreamUrl = `${notificationBase}/api/notifications/stream`;
 export const TOKEN_KEY = "homehub.token";
-export const api = axios.create({ baseURL: API_BASE, timeout: 20000 });
-api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem(TOKEN_KEY);
-  if (token && !config.url.startsWith("/auth/"))
-    config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (
-      error.response?.status === 401 &&
-      !error.config?.url?.startsWith("/auth/") &&
-      sessionStorage.getItem(TOKEN_KEY) &&
-      (error.config?.headers?.get?.("Authorization") || error.config?.headers?.Authorization) === `Bearer ${sessionStorage.getItem(TOKEN_KEY)}`
-    ) {
-      sessionStorage.removeItem(TOKEN_KEY);
-      window.dispatchEvent(new Event("homehub:unauthorized"));
+
+export function expireSession(token) {
+  if (token && sessionStorage.getItem(TOKEN_KEY) === token) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    window.dispatchEvent(new Event("homehub:unauthorized"));
+  }
+}
+
+function createClient(base, isPublic = () => false) {
+  const client = axios.create({
+    baseURL: `${base}/api`,
+    allowAbsoluteUrls: false,
+    timeout: 20000,
+  });
+  client.interceptors.request.use((config) => {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (token && !isPublic(config.url)) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return Promise.reject(error);
-  },
-);
+    return config;
+  }, undefined, { synchronous: true });
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        const authorization = error.config?.headers?.get("Authorization");
+        if (authorization?.startsWith("Bearer ")) expireSession(authorization.slice(7));
+      }
+      return Promise.reject(error);
+    },
+  );
+  return client;
+}
+
+export const authClient = createClient(authBase, (path) => path.startsWith("/auth/"));
+export const bookingClient = createClient(bookingBase);
+export const notificationClient = createClient(notificationBase);
+
 export function errorMessage(error) {
   return (
     error.response?.data?.message ||
@@ -42,5 +64,7 @@ export function errorMessage(error) {
     "Could not connect to HomeHub. Please check your connection and try again."
   );
 }
-export const imageUrl = (path) =>
-  path ? new URL(path, new URL(API_BASE, window.location.origin)).href : "";
+
+export const imageUrl = (path) => path
+  ? new URL(path.replace(/^\/(?=uploads\/)/, ""), new URL(`${authBase}/`, window.location.origin)).href
+  : "";

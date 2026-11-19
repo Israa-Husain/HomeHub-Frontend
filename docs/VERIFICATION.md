@@ -1,4 +1,6 @@
-# Verification record
+# Historical initial frontend verification record
+
+The results below predate Phases 1–5. Current test counts, live observations and pending acceptance checks are recorded in [PHASE-5-INTEGRATION.md](PHASE-5-INTEGRATION.md). The old 59-operation/18-route counts and missing-API notes below are historical, not current claims.
 
 Verified in the supplied Windows workspace against the existing server at localhost:8070. Node 24.13.0; npm 11.6.2. No backend files were modified, and no database setup or seed execution was performed.
 

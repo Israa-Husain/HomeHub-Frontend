@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
-import { allPages, get, post, put, remove } from "../api";
+import { allPages, authApi, get, post, put, remove } from "../api";
 import { useResource } from "../hooks/useResource";
 import { useAuth } from "../context/AuthContext";
 import { Resource, ActionButton, ActionForm, Field, Status, Empty, Pagination, Notice } from "../components/Common";
@@ -12,7 +12,7 @@ function AdminNavigation() {
   </nav>;
 }
 export function AdminOverview() {
-  const users = useResource(() => get("/admin/users",{page:0,size:1}));
+  const users = useResource(() => authApi.users({page:0,size:1}));
   const providers = useResource(() => get("/admin/providers",{page:0,size:1}));
   const pending = useResource(() => get("/admin/providers",{status:"PENDING",page:0,size:1,sort:"createdAt,asc"}));
   const categories = useResource(() => get("/categories",{page:0,size:1}));
@@ -33,7 +33,7 @@ export function AdminUsers() {
   const { user } = useAuth();
   const [page,setPage] = useState(0);
   const [message,setMessage] = useState("");
-  const users = useResource(() => get("/admin/users",{page,size:20,sort:"id,asc"}),[page]);
+  const users = useResource(() => authApi.users({page,size:20,sort:"id,asc"}),[page]);
   return <>
     <div className="dashboard-heading"><div><p className="eyebrow">Account administration</p><h1>Platform users</h1><p className="muted">Review account details, roles and verification before changing access.</p></div><button disabled={users.loading} onClick={users.reload}>Refresh users</button></div><AdminNavigation />
     <Notice kind="success">{message}</Notice><Notice>Deactivation removes access to HomeHub. User records are retained, and reactivation is not available here.</Notice>
@@ -42,7 +42,7 @@ export function AdminUsers() {
       {!result.content.length ? <Empty>No users on this page.{page > 0 && <button onClick={() => setPage(0)}>Return to first page</button>}</Empty> : <div className="table-wrap"><table className="admin-user-table"><caption>HomeHub accounts. Expand a name to view verification, contact details and Bahrain timestamps.</caption><thead><tr><th scope="col">User</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Account status</th><th scope="col">Action</th></tr></thead><tbody>{result.content.map(row => <tr key={row.id}>
         <td><details><summary>{row.firstName} {row.lastName} <small>#{row.id}</small></summary><dl className="admin-user-details"><dt>Phone</dt><dd>{row.phoneNumber || "Not provided"}</dd><dt>Email verified</dt><dd>{row.isEmailVerified ? "Yes" : "No"}</dd><dt>Joined</dt><dd>{formatDateTime(row.createdAt)}</dd><dt>Updated</dt><dd>{formatDateTime(row.updatedAt)}</dd></dl></details></td>
         <td>{row.email}</td><td><span className="role-label">{label(row.role)}</span></td><td><Status value={row.status} /></td>
-        <td>{String(row.id) === String(user.id) ? <span className="field-hint">Your account</span> : row.status === "ACTIVE" ? <ActionButton className="danger" action={() => remove(`/admin/users/${row.id}`)} onSuccess={() => {setMessage(`${row.firstName} ${row.lastName} (${row.email}) has been deactivated.`);users.reload();}} confirm={`Deactivate ${row.firstName} ${row.lastName} (${row.email}), user #${row.id}? They will lose access to HomeHub. This does not delete their records. Reactivation is not available here.`}>Deactivate account</ActionButton> : <span className="field-hint">No action available</span>}</td>
+        <td>{String(row.id) === String(user.id) ? <span className="field-hint">Your account</span> : row.status === "ACTIVE" ? <ActionButton className="danger" action={() => authApi.deactivateUser(row.id)} onSuccess={() => {setMessage(`${row.firstName} ${row.lastName} (${row.email}) has been deactivated.`);users.reload();}} confirm={`Deactivate ${row.firstName} ${row.lastName} (${row.email}), user #${row.id}? They will lose access to HomeHub. This does not delete their records. Reactivation is not available here.`}>Deactivate account</ActionButton> : <span className="field-hint">No action available</span>}</td>
       </tr>)}</tbody></table></div>}
       <Pagination result={result} page={page} setPage={setPage} />
     </>}</Resource>

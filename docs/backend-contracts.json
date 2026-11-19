@@ -1,0 +1,495 @@
+{
+  "source": "Inspected backend controller source; not live integration evidence",
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public Page<UserResponse> getAllUsers(Pageable pageable)",
+      "response": "200: Page<UserResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/providers",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public Page<Map<String,Object>> getProviderApplications(@RequestParam(required=false) ProviderStatus status,Pageable pageable)",
+      "response": "200: Page<Map<String,Object>>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/providers/{providerId}",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public Map<String,Object> getProviderApplication(@PathVariable Long providerId)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/providers/{providerId}/approve",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public ProviderResponse approveProvider(@PathVariable Long providerId)",
+      "response": "200: ProviderResponse"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{userId}",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public void deactivateUser(@PathVariable Long userId)",
+      "response": "204: void"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/register",
+      "authorization": "Public (no JWT required)",
+      "request": "public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request)",
+      "response": "201: ResponseEntity<?>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/verify",
+      "authorization": "Public (no JWT required)",
+      "request": "public ResponseEntity<?> verifyEmail(@RequestParam String token)",
+      "response": "200: ResponseEntity<?>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "authorization": "Public (no JWT required)",
+      "request": "public LoginResponse login(@Valid @RequestBody LoginRequest request)",
+      "response": "200: LoginResponse"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "authorization": "Public (no JWT required)",
+      "request": "public Map<String,String> forgot(@Valid @RequestBody ForgotPasswordRequest request)",
+      "response": "200: Map<String,String>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/reset-password",
+      "authorization": "Public (no JWT required)",
+      "request": "public Map<String,String> reset(@Valid @RequestBody ResetPasswordRequest request)",
+      "response": "200: Map<String,String>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/availability",
+      "authorization": "!#timeOff &#124;&#124; hasRole('PROVIDER')",
+      "request": "public List<AvailabilityResponse> getProviderAvailabilityByDate(@RequestParam Long providerId, @RequestParam LocalDate date,@RequestParam(defaultValue=\"false\") boolean timeOff)",
+      "response": "200: List<AvailabilityResponse>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/availability",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ResponseEntity<AvailabilityResponse> createAvailability(@Valid @RequestBody AvailabilityRequest request)",
+      "response": "201: ResponseEntity<AvailabilityResponse>"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/availability/{availabilityId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public AvailabilityResponse updateAvailability(@PathVariable Long availabilityId,@Valid @RequestBody AvailabilityRequest request)",
+      "response": "200: AvailabilityResponse"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/availability/{availabilityId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public void deleteAvailability(@PathVariable Long availabilityId)",
+      "response": "204: void"
+    },
+    {
+      "method": "POST",
+      "path": "/api/availability/time-off",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ResponseEntity<AvailabilityResponse> blockTimeOff(@Valid @RequestBody AvailabilityRequest request)",
+      "response": "201: ResponseEntity<AvailabilityResponse>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/booking",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public ResponseEntity<BookingResponse> createBooking(@Valid @RequestBody BookingRequest request)",
+      "response": "201: ResponseEntity<BookingResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/booking",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Page<BookingResponse> getCurrentUserBookings(@RequestParam(required = false)BookingStatus status, Pageable pageable)",
+      "response": "200: Page<BookingResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/booking/available-times",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public List<LocalTime> getAvailableAppointmentTimes(@RequestParam Long serviceId,@RequestParam LocalDate date, @RequestParam(defaultValue=\"NORMAL\") BookingType bookingType)",
+      "response": "200: List<LocalTime>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/booking/{bookingId}/history",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Page<Map<String,Object>> getBookingHistory(@PathVariable Long bookingId,Pageable pageable)",
+      "response": "200: Page<Map<String,Object>>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/booking/{bookingId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public BookingResponse getBookingById(@PathVariable Long bookingId)",
+      "response": "200: BookingResponse"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/booking/{bookingId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public BookingResponse cancelBooking(@PathVariable Long bookingId)",
+      "response": "200: BookingResponse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/booking/{bookingId}/status",
+      "authorization": "hasAnyRole('ADMIN','PROVIDER')",
+      "request": "public BookingResponse updateBookingStatus(@PathVariable Long bookingId, @Valid @RequestBody BookingStatusRequest request)",
+      "response": "200: BookingResponse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reschedules",
+      "authorization": "hasAnyRole('HOMEOWNER','PROVIDER')",
+      "request": "public Page<Map<String,Object>> getCurrentUserRequests(@RequestParam(required=false) RescheduleStatus status, @RequestParam(required=false) Long bookingId,Pageable pageable)",
+      "response": "200: Page<Map<String,Object>>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reschedules/{id}",
+      "authorization": "hasAnyRole('HOMEOWNER','PROVIDER')",
+      "request": "public Map<String,Object> getRequestById(@PathVariable Long id)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/reschedules/booking/{bookingId}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Map<String,Object> requestReschedule(@PathVariable Long bookingId,@Valid @RequestBody Request request)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/reschedules/{id}/decision",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public Map<String,Object> decideReschedule(@PathVariable Long id,@Valid @RequestBody Decision decision)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/waitlist",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Map<String,Object> joinWaitlist(@Valid @RequestBody JoinRequest request)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/waitlist",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public List<Map<String,Object>> getMyWaitlist()",
+      "response": "200: List<Map<String,Object>>"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/waitlist/{id}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public void leaveWaitlist(@PathVariable Long id)",
+      "response": "200: void"
+    },
+    {
+      "method": "POST",
+      "path": "/api/waitlist/{id}/claim",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Object claimWaitlistOffer(@PathVariable Long id)",
+      "response": "200: Object"
+    },
+    {
+      "method": "GET",
+      "path": "/api/categories",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Page<Category> getAllCategories(Pageable pageable)",
+      "response": "200: Page<Category>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/categories/{categoryId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Category getCategoryById(@PathVariable Long categoryId)",
+      "response": "200: Category"
+    },
+    {
+      "method": "POST",
+      "path": "/api/categories",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public ResponseEntity<Category> createCategory(@Valid @RequestBody CategoryRequest request)",
+      "response": "201: ResponseEntity<Category>"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/categories/{categoryId}",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public Category updateCategory(@PathVariable Long categoryId, @Valid @RequestBody CategoryRequest request)",
+      "response": "200: Category"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/categories/{categoryId}",
+      "authorization": "hasRole('ADMIN')",
+      "request": "public void deleteCategory(@PathVariable Long categoryId)",
+      "response": "204: void"
+    },
+    {
+      "method": "POST",
+      "path": "/api/homes",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public ResponseEntity<Home> createHome(@Valid @RequestBody HomeRequest request)",
+      "response": "201: ResponseEntity<Home>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/homes",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Page<Home> getCurrentUserHomes(Pageable pageable)",
+      "response": "200: Page<Home>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/homes/{homeId}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Home getHomeById(@PathVariable Long homeId)",
+      "response": "200: Home"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/homes/{homeId}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Home updateHome(@PathVariable Long homeId, @Valid @RequestBody HomeRequest request)",
+      "response": "200: Home"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/homes/{homeId}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public void deleteHome(@PathVariable Long homeId)",
+      "response": "204: void"
+    },
+    {
+      "method": "POST",
+      "path": "/api/assessments/booking/{bookingId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public Map<String, Object> submitAssessment(@PathVariable Long bookingId, @Valid @RequestBody AssessmentRequest request)",
+      "response": "200: Map<String, Object>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/assessments/booking/{bookingId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public List<Map<String,Object>> getAssessment(@PathVariable Long bookingId)",
+      "response": "200: List<Map<String,Object>>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/stream",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public SseEmitter subscribeToNotifications()",
+      "response": "200: SseEmitter"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public List<Map<String, Object>> getHistory()",
+      "response": "200: List<Map<String, Object>>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Map<String,Long> getUnreadCount()",
+      "response": "200: Map<String,Long>"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/{id}/read",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public void markRead(@PathVariable Long id)",
+      "response": "200: void"
+    },
+    {
+      "method": "POST",
+      "path": "/api/providers",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ResponseEntity<ProviderResponse> createProviderProfile(@Valid @RequestBody ProviderRequest request)",
+      "response": "201: ResponseEntity<ProviderResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers/profile",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ProviderResponse getCurrentProviderProfile()",
+      "response": "200: ProviderResponse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/providers/profile",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ProviderResponse updateProviderProfile(@Valid @RequestBody ProviderRequest request)",
+      "response": "200: ProviderResponse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers/{providerId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public ProviderResponse getProviderDetails(@PathVariable Long providerId)",
+      "response": "200: ProviderResponse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/providers/portfolio",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ProviderResponse updatePortfolio(@RequestBody PortfolioRequest request)",
+      "response": "200: ProviderResponse"
+    },
+    {
+      "method": "POST",
+      "path": "/api/favorites/{serviceId}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Map<String,Object> addFavorite(@PathVariable Long serviceId)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/favorites",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public List<Map<String,Object>> getMyFavorites()",
+      "response": "200: List<Map<String,Object>>"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/favorites/{favoriteId}",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public void removefavorite(@PathVariable Long favoriteId)",
+      "response": "200: void"
+    },
+    {
+      "method": "GET",
+      "path": "/api/services",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Page<ServiceResponse> getAllServiceOffering(@RequestParam(required = false) Long categoryId, @RequestParam(required = false) Long providerId, Pageable pageable)",
+      "response": "200: Page<ServiceResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/services/mine",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public Page<ServiceResponse> getCurrentProviderServices(Pageable pageable)",
+      "response": "200: Page<ServiceResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/services/{serviceId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public ServiceResponse getServiceOfferingById(@PathVariable Long serviceId)",
+      "response": "200: ServiceResponse"
+    },
+    {
+      "method": "POST",
+      "path": "/api/services",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ResponseEntity<ServiceResponse> createServiceOffering(@Valid @RequestBody ServiceRequest request)",
+      "response": "201: ResponseEntity<ServiceResponse>"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/services/{serviceId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public ServiceResponse updateServiceOffering(@PathVariable Long serviceId, @Valid @RequestBody ServiceRequest request)",
+      "response": "200: ServiceResponse"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/services/{serviceId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public void deactivateServiceOffering(@PathVariable Long serviceId)",
+      "response": "204: void"
+    },
+    {
+      "method": "GET",
+      "path": "/api/services/search",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Page<ServiceResponse> searchServices( @RequestParam(required = false) String name, @RequestParam(required = false) Long categoryId, @RequestParam(required = false) Long providerId, @RequestParam(required = false) Double minPrice, @RequestParam(required = false) Double maxPrice, Pageable pageable)",
+      "response": "200: Page<ServiceResponse>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/booking/{bookingId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Map<String,Object> getReport(@PathVariable Long bookingId)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/reports/booking/{bookingId}",
+      "authorization": "hasRole('PROVIDER')",
+      "request": "public Map<String,Object> submitReport(@PathVariable Long bookingId, @Valid @RequestBody ReportRequest request)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reviews/mine",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Page<Map<String,Object>> getMyReviews(Pageable pageable)",
+      "response": "200: Page<Map<String,Object>>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/reviews",
+      "authorization": "hasRole('HOMEOWNER')",
+      "request": "public Map<String,Object> createReview(@Valid @RequestBody ReviewRequest request)",
+      "response": "200: Map<String,Object>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reviews/provider/{providerId}",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public List<Map<String,Object>> getProvider(@PathVariable Long providerId)",
+      "response": "200: List<Map<String,Object>>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/profile",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public UserResponse getCurrentUserProfile()",
+      "response": "200: UserResponse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/profile",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public UserResponse updateUserProfile(@Valid @RequestBody UpdateUserRequest request)",
+      "response": "200: UserResponse"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/change-password",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request)",
+      "response": "204: ResponseEntity<Void>"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/profile-picture",
+      "authorization": "Authenticated; service authorization applies",
+      "request": "public Map<String,String> uploadProfilePicture(@RequestParam MultipartFile file)",
+      "response": "200: Map<String,String>"
+    }
+  ]
+}

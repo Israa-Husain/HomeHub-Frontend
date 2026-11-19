@@ -1,1067 +1,676 @@
-# HomeHub API inventory
+# HomeHub consolidated backend API inventory after Phase 4
 
-Generated from the running backend OpenAPI and checked against all 16 controller sources. Protected requests use `Authorization: Bearer <token>`. Root API URL: `/api` (local proxy to port 8070). Auth routes are public; other routes require login. Ownership and state checks remain server-side.
+Generated from current Java controller source, not from a running OpenAPI server. This accounts for application controller operations only. Phase 1-4 changes remain uncommitted. Live PostgreSQL, JWT-account and deployment integration remain unverified.
 
-## PUT /api/admin/providers/{providerId}/approve
+Base URL: http://localhost:8070. Protected calls require `Authorization: Bearer <JWT>`. The existing security chain permits auth routes, Swagger/OpenAPI and /uploads/** anonymously; all other application API routes require authentication. Marketplace/public-facing reads therefore currently require login. Controller role checks shown below are additional restrictions; ownership and booking-state checks are enforced by services.
 
-- Controller tag: Admin
-- Frontend / role: Admin.jsx — ADMIN
-- Parameters: providerId (path, required, integer)
-- Body: none
-- Responses: 200: ProviderResponse; 400: ProviderResponse; 401: ProviderResponse; 403: ProviderResponse; 404: ProviderResponse
+Pageable means query parameters page (zero-based), size and sort=field,asc|desc. Page responses contain content, totalElements, totalPages, number and size. RequestBody parameters refer to JSON unless multipart/form-data is explicitly specified. Query date/time values use ISO dates/times without timezone offsets.
 
-## GET /api/admin/users
+## AdminController.java - /api/admin
 
-- Controller tag: Admin
-- Frontend / role: Admin.jsx — ADMIN
-- Parameters: pageable (query, required, Pageable)
-- Body: none
-- Responses: 200: PageUserResponse; 400: PageUserResponse; 401: PageUserResponse; 403: PageUserResponse
+Frontend consumer: Admin.jsx.
 
-## DELETE /api/admin/users/{userId}
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/admin/users` | hasRole('ADMIN') | `public Page<UserResponse> getAllUsers(Pageable pageable)` | `200: Page<UserResponse>` |
+| `GET /api/admin/providers` | hasRole('ADMIN') | `public Page<Map<String,Object>> getProviderApplications(@RequestParam(required=false) ProviderStatus status,Pageable pageable)` | `200: Page<Map<String,Object>>` |
+| `GET /api/admin/providers/{providerId}` | hasRole('ADMIN') | `public Map<String,Object> getProviderApplication(@PathVariable Long providerId)` | `200: Map<String,Object>` |
+| `PUT /api/admin/providers/{providerId}/approve` | hasRole('ADMIN') | `public ProviderResponse approveProvider(@PathVariable Long providerId)` | `200: ProviderResponse` |
+| `DELETE /api/admin/users/{userId}` | hasRole('ADMIN') | `public void deactivateUser(@PathVariable Long userId)` | `204: void` |
 
-- Controller tag: Admin
-- Frontend / role: Admin.jsx — ADMIN
-- Parameters: userId (path, required, integer)
-- Body: none
-- Responses: 204: empty; 400: empty; 401: empty; 403: empty; 404: empty
+## AuthController.java - /api/auth
 
-## GET /api/assessments/booking/{bookingId}
+Frontend consumer: Auth.jsx.
 
-- Controller tag: HomeownerAssessment
-- Frontend / role: Bookings.jsx — PROVIDER, pending read / completed submission
-- Parameters: bookingId (path, required, integer)
-- Body: none
-- Responses: 200: array<object>; 400: array<object>; 401: array<object>; 403: array<object>; 404: array<object>
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/auth/register` | Public (no JWT required) | `public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request)` | `201: ResponseEntity<?>` |
+| `GET /api/auth/verify` | Public (no JWT required) | `public ResponseEntity<?> verifyEmail(@RequestParam String token)` | `200: ResponseEntity<?>` |
+| `POST /api/auth/login` | Public (no JWT required) | `public LoginResponse login(@Valid @RequestBody LoginRequest request)` | `200: LoginResponse` |
+| `POST /api/auth/forgot-password` | Public (no JWT required) | `public Map<String,String> forgot(@Valid @RequestBody ForgotPasswordRequest request)` | `200: Map<String,String>` |
+| `POST /api/auth/reset-password` | Public (no JWT required) | `public Map<String,String> reset(@Valid @RequestBody ResetPasswordRequest request)` | `200: Map<String,String>` |
 
-## POST /api/assessments/booking/{bookingId}
+## AvailabilityController.java - /api/availability
 
-- Controller tag: HomeownerAssessment
-- Frontend / role: Bookings.jsx — PROVIDER, pending read / completed submission
-- Parameters: bookingId (path, required, integer)
-- Body: application/json: AssessmentRequest
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+Frontend consumer: Provider.jsx / service booking.
 
-## POST /api/auth/forgot-password
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/availability` | !#timeOff &#124;&#124; hasRole('PROVIDER') | `public List<AvailabilityResponse> getProviderAvailabilityByDate(@RequestParam Long providerId, @RequestParam LocalDate date,@RequestParam(defaultValue="false") boolean timeOff)` | `200: List<AvailabilityResponse>` |
+| `POST /api/availability` | hasRole('PROVIDER') | `public ResponseEntity<AvailabilityResponse> createAvailability(@Valid @RequestBody AvailabilityRequest request)` | `201: ResponseEntity<AvailabilityResponse>` |
+| `PUT /api/availability/{availabilityId}` | hasRole('PROVIDER') | `public AvailabilityResponse updateAvailability(@PathVariable Long availabilityId,@Valid @RequestBody AvailabilityRequest request)` | `200: AvailabilityResponse` |
+| `DELETE /api/availability/{availabilityId}` | hasRole('PROVIDER') | `public void deleteAvailability(@PathVariable Long availabilityId)` | `204: void` |
+| `POST /api/availability/time-off` | hasRole('PROVIDER') | `public ResponseEntity<AvailabilityResponse> blockTimeOff(@Valid @RequestBody AvailabilityRequest request)` | `201: ResponseEntity<AvailabilityResponse>` |
 
-- Controller tag: Auth
-- Frontend / role: Auth.jsx — public
-- Parameters: none
-- Body: application/json: ForgotPasswordRequest
-- Responses: 200: object; 400: object
+## BookingController.java - /api/booking
 
-## POST /api/auth/login
+Frontend consumer: Bookings.jsx / Services.jsx.
 
-- Controller tag: Auth
-- Frontend / role: Auth.jsx — public
-- Parameters: none
-- Body: application/json: LoginRequest
-- Responses: 200: LoginResponse; 400: LoginResponse; 401: LoginResponse; 403: LoginResponse
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/booking` | hasRole('HOMEOWNER') | `public ResponseEntity<BookingResponse> createBooking(@Valid @RequestBody BookingRequest request)` | `201: ResponseEntity<BookingResponse>` |
+| `GET /api/booking` | Authenticated; service authorization applies | `public Page<BookingResponse> getCurrentUserBookings(@RequestParam(required = false)BookingStatus status, Pageable pageable)` | `200: Page<BookingResponse>` |
+| `GET /api/booking/available-times` | Authenticated; service authorization applies | `public List<LocalTime> getAvailableAppointmentTimes(@RequestParam Long serviceId,@RequestParam LocalDate date, @RequestParam(defaultValue="NORMAL") BookingType bookingType)` | `200: List<LocalTime>` |
+| `GET /api/booking/{bookingId}/history` | Authenticated; service authorization applies | `public Page<Map<String,Object>> getBookingHistory(@PathVariable Long bookingId,Pageable pageable)` | `200: Page<Map<String,Object>>` |
+| `GET /api/booking/{bookingId}` | Authenticated; service authorization applies | `public BookingResponse getBookingById(@PathVariable Long bookingId)` | `200: BookingResponse` |
+| `DELETE /api/booking/{bookingId}` | Authenticated; service authorization applies | `public BookingResponse cancelBooking(@PathVariable Long bookingId)` | `200: BookingResponse` |
+| `PUT /api/booking/{bookingId}/status` | hasAnyRole('ADMIN','PROVIDER') | `public BookingResponse updateBookingStatus(@PathVariable Long bookingId, @Valid @RequestBody BookingStatusRequest request)` | `200: BookingResponse` |
 
-## POST /api/auth/register
+## BookingRescheduleController.java - /api/reschedules
 
-- Controller tag: Auth
-- Frontend / role: Auth.jsx — public
-- Parameters: none
-- Body: application/json: RegisterRequest
-- Responses: 201: object; 400: object; 403: object; 409: object
+Frontend consumer: Homeowner/provider reschedule pages.
 
-## POST /api/auth/reset-password
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/reschedules` | hasAnyRole('HOMEOWNER','PROVIDER') | `public Page<Map<String,Object>> getCurrentUserRequests(@RequestParam(required=false) RescheduleStatus status, @RequestParam(required=false) Long bookingId,Pageable pageable)` | `200: Page<Map<String,Object>>` |
+| `GET /api/reschedules/{id}` | hasAnyRole('HOMEOWNER','PROVIDER') | `public Map<String,Object> getRequestById(@PathVariable Long id)` | `200: Map<String,Object>` |
+| `POST /api/reschedules/booking/{bookingId}` | hasRole('HOMEOWNER') | `public Map<String,Object> requestReschedule(@PathVariable Long bookingId,@Valid @RequestBody Request request)` | `200: Map<String,Object>` |
+| `PUT /api/reschedules/{id}/decision` | hasRole('PROVIDER') | `public Map<String,Object> decideReschedule(@PathVariable Long id,@Valid @RequestBody Decision decision)` | `200: Map<String,Object>` |
 
-- Controller tag: Auth
-- Frontend / role: Auth.jsx — public
-- Parameters: none
-- Body: application/json: ResetPasswordRequest
-- Responses: 200: object; 400: object; 404: object
+## BookingWaitlistController.java - /api/waitlist
 
-## GET /api/auth/verify
+Frontend consumer: Saved.jsx / Services.jsx.
 
-- Controller tag: Auth
-- Frontend / role: Auth.jsx — public
-- Parameters: token (query, required, string)
-- Body: none
-- Responses: 200: object; 400: object; 403: object; 404: object; 409: object
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/waitlist` | hasRole('HOMEOWNER') | `public Map<String,Object> joinWaitlist(@Valid @RequestBody JoinRequest request)` | `200: Map<String,Object>` |
+| `GET /api/waitlist` | hasRole('HOMEOWNER') | `public List<Map<String,Object>> getMyWaitlist()` | `200: List<Map<String,Object>>` |
+| `DELETE /api/waitlist/{id}` | hasRole('HOMEOWNER') | `public void leaveWaitlist(@PathVariable Long id)` | `200: void` |
+| `POST /api/waitlist/{id}/claim` | hasRole('HOMEOWNER') | `public Object claimWaitlistOffer(@PathVariable Long id)` | `200: Object` |
 
-## GET /api/availability
+## CategoryController.java - /api/categories
 
-- Controller tag: Availability
-- Frontend / role: Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: providerId (query, required, integer); date (query, required, string)
-- Body: none
-- Responses: 200: array<Availability>; 400: array<Availability>; 401: array<Availability>; 403: array<Availability>; 404: array<Availability>
+Frontend consumer: Services.jsx / Admin.jsx.
 
-## POST /api/availability
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/categories` | Authenticated; service authorization applies | `public Page<Category> getAllCategories(Pageable pageable)` | `200: Page<Category>` |
+| `GET /api/categories/{categoryId}` | Authenticated; service authorization applies | `public Category getCategoryById(@PathVariable Long categoryId)` | `200: Category` |
+| `POST /api/categories` | hasRole('ADMIN') | `public ResponseEntity<Category> createCategory(@Valid @RequestBody CategoryRequest request)` | `201: ResponseEntity<Category>` |
+| `PUT /api/categories/{categoryId}` | hasRole('ADMIN') | `public Category updateCategory(@PathVariable Long categoryId, @Valid @RequestBody CategoryRequest request)` | `200: Category` |
+| `DELETE /api/categories/{categoryId}` | hasRole('ADMIN') | `public void deleteCategory(@PathVariable Long categoryId)` | `204: void` |
 
-- Controller tag: Availability
-- Frontend / role: Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: none
-- Body: application/json: AvailabilityRequest
-- Responses: 201: Availability; 400: Availability; 401: Availability; 403: Availability; 404: Availability
+## HomeController.java - /api/homes
 
-## POST /api/availability/time-off
-
-- Controller tag: Availability
-- Frontend / role: Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: none
-- Body: application/json: AvailabilityRequest
-- Responses: 201: Availability; 400: Availability; 401: Availability; 403: Availability; 404: Availability
+Frontend consumer: Homes.jsx / service booking.
 
-## DELETE /api/availability/{availabilityId}
-
-- Controller tag: Availability
-- Frontend / role: Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: availabilityId (path, required, integer)
-- Body: none
-- Responses: 204: empty; 400: empty; 401: empty; 403: empty; 404: empty
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/homes` | hasRole('HOMEOWNER') | `public ResponseEntity<Home> createHome(@Valid @RequestBody HomeRequest request)` | `201: ResponseEntity<Home>` |
+| `GET /api/homes` | hasRole('HOMEOWNER') | `public Page<Home> getCurrentUserHomes(Pageable pageable)` | `200: Page<Home>` |
+| `GET /api/homes/{homeId}` | hasRole('HOMEOWNER') | `public Home getHomeById(@PathVariable Long homeId)` | `200: Home` |
+| `PUT /api/homes/{homeId}` | hasRole('HOMEOWNER') | `public Home updateHome(@PathVariable Long homeId, @Valid @RequestBody HomeRequest request)` | `200: Home` |
+| `DELETE /api/homes/{homeId}` | hasRole('HOMEOWNER') | `public void deleteHome(@PathVariable Long homeId)` | `204: void` |
 
-## GET /api/booking
-
-- Controller tag: Booking
-- Frontend / role: Bookings.jsx / Services.jsx — participant reads, HOMEOWNER create/cancel, PROVIDER/ADMIN status; ADMIN lookup/cancel
-- Parameters: status (query, optional, string); pageable (query, required, Pageable)
-- Body: none
-- Responses: 200: PageBookingResponse; 400: PageBookingResponse; 401: PageBookingResponse; 403: PageBookingResponse
+## HomeownerAssessmentController.java - /api/assessments
 
-## POST /api/booking
-
-- Controller tag: Booking
-- Frontend / role: Bookings.jsx / Services.jsx — participant reads, HOMEOWNER create/cancel, PROVIDER/ADMIN status; ADMIN lookup/cancel
-- Parameters: none
-- Body: application/json: BookingRequest
-- Responses: 201: BookingResponse; 400: BookingResponse; 401: BookingResponse; 403: BookingResponse; 404: BookingResponse; 422: BookingResponse
+Frontend consumer: Booking details (provider only).
 
-## GET /api/booking/{bookingId}
-
-- Controller tag: Booking
-- Frontend / role: Bookings.jsx / Services.jsx — participant reads, HOMEOWNER create/cancel, PROVIDER/ADMIN status; ADMIN lookup/cancel
-- Parameters: bookingId (path, required, integer)
-- Body: none
-- Responses: 200: BookingResponse; 401: BookingResponse; 403: BookingResponse; 404: BookingResponse
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/assessments/booking/{bookingId}` | hasRole('PROVIDER') | `public Map<String, Object> submitAssessment(@PathVariable Long bookingId, @Valid @RequestBody AssessmentRequest request)` | `200: Map<String, Object>` |
+| `GET /api/assessments/booking/{bookingId}` | hasRole('PROVIDER') | `public List<Map<String,Object>> getAssessment(@PathVariable Long bookingId)` | `200: List<Map<String,Object>>` |
 
-## DELETE /api/booking/{bookingId}
-
-- Controller tag: Booking
-- Frontend / role: Bookings.jsx / Services.jsx — participant reads, HOMEOWNER create/cancel, PROVIDER/ADMIN status; ADMIN lookup/cancel
-- Parameters: bookingId (path, required, integer)
-- Body: none
-- Responses: 200: BookingResponse; 400: BookingResponse; 401: BookingResponse; 403: BookingResponse; 404: BookingResponse; 422: BookingResponse
+## NotificationController.java - /api/notifications
 
-## PUT /api/booking/{bookingId}/status
-
-- Controller tag: Booking
-- Frontend / role: Bookings.jsx / Services.jsx — participant reads, HOMEOWNER create/cancel, PROVIDER/ADMIN status; ADMIN lookup/cancel
-- Parameters: bookingId (path, required, integer)
-- Body: application/json: BookingStatusRequest
-- Responses: 200: BookingResponse; 400: BookingResponse; 401: BookingResponse; 403: BookingResponse; 404: BookingResponse; 422: BookingResponse
+Frontend consumer: NotificationContext / Saved.jsx.
 
-## GET /api/categories
-
-- Controller tag: Category
-- Frontend / role: Services.jsx / Admin.jsx — authenticated reads; ADMIN mutations
-- Parameters: pageable (query, required, Pageable)
-- Body: none
-- Responses: 200: PageCategory; 400: PageCategory; 401: PageCategory; 403: PageCategory; 404: PageCategory
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/notifications/stream` | Authenticated; service authorization applies | `public SseEmitter subscribeToNotifications()` | `200: SseEmitter` |
+| `GET /api/notifications` | Authenticated; service authorization applies | `public List<Map<String, Object>> getHistory()` | `200: List<Map<String, Object>>` |
+| `GET /api/notifications/unread-count` | Authenticated; service authorization applies | `public Map<String,Long> getUnreadCount()` | `200: Map<String,Long>` |
+| `PATCH /api/notifications/{id}/read` | Authenticated; service authorization applies | `public void markRead(@PathVariable Long id)` | `200: void` |
 
-## POST /api/categories
-
-- Controller tag: Category
-- Frontend / role: Services.jsx / Admin.jsx — authenticated reads; ADMIN mutations
-- Parameters: none
-- Body: application/json: CategoryRequest
-- Responses: 201: Category; 400: Category; 401: Category; 403: Category; 404: Category
+## ProviderController.java - /api/providers
 
-## GET /api/categories/{categoryId}
-
-- Controller tag: Category
-- Frontend / role: Services.jsx / Admin.jsx — authenticated reads; ADMIN mutations
-- Parameters: categoryId (path, required, integer)
-- Body: none
-- Responses: 200: Category; 400: Category; 401: Category; 403: Category; 404: Category
+Frontend consumer: Provider.jsx / provider details.
 
-## PUT /api/categories/{categoryId}
-
-- Controller tag: Category
-- Frontend / role: Services.jsx / Admin.jsx — authenticated reads; ADMIN mutations
-- Parameters: categoryId (path, required, integer)
-- Body: application/json: CategoryRequest
-- Responses: 200: Category; 400: Category; 401: Category; 403: Category; 404: Category
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/providers` | hasRole('PROVIDER') | `public ResponseEntity<ProviderResponse> createProviderProfile(@Valid @RequestBody ProviderRequest request)` | `201: ResponseEntity<ProviderResponse>` |
+| `GET /api/providers/profile` | hasRole('PROVIDER') | `public ProviderResponse getCurrentProviderProfile()` | `200: ProviderResponse` |
+| `PUT /api/providers/profile` | hasRole('PROVIDER') | `public ProviderResponse updateProviderProfile(@Valid @RequestBody ProviderRequest request)` | `200: ProviderResponse` |
+| `GET /api/providers/{providerId}` | Authenticated; service authorization applies | `public ProviderResponse getProviderDetails(@PathVariable Long providerId)` | `200: ProviderResponse` |
+| `PUT /api/providers/portfolio` | hasRole('PROVIDER') | `public ProviderResponse updatePortfolio(@RequestBody PortfolioRequest request)` | `200: ProviderResponse` |
 
-## DELETE /api/categories/{categoryId}
-
-- Controller tag: Category
-- Frontend / role: Services.jsx / Admin.jsx — authenticated reads; ADMIN mutations
-- Parameters: categoryId (path, required, integer)
-- Body: none
-- Responses: 204: empty; 400: empty; 401: empty; 403: empty; 404: empty
+## ServiceFavoriteController.java - /api/favorites
 
-## GET /api/favorites
-
-- Controller tag: ServiceFavorite
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: none
-- Body: none
-- Responses: 200: array<object>; 400: array<object>; 401: array<object>; 403: array<object>; 404: array<object>
+Frontend consumer: Saved.jsx / Services.jsx.
 
-## DELETE /api/favorites/{favoriteId}
-
-- Controller tag: ServiceFavorite
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: favoriteId (path, required, integer)
-- Body: none
-- Responses: 200: empty; 400: empty; 401: empty; 403: empty; 404: empty
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `POST /api/favorites/{serviceId}` | hasRole('HOMEOWNER') | `public Map<String,Object> addFavorite(@PathVariable Long serviceId)` | `200: Map<String,Object>` |
+| `GET /api/favorites` | hasRole('HOMEOWNER') | `public List<Map<String,Object>> getMyFavorites()` | `200: List<Map<String,Object>>` |
+| `DELETE /api/favorites/{favoriteId}` | hasRole('HOMEOWNER') | `public void removefavorite(@PathVariable Long favoriteId)` | `200: void` |
 
-## POST /api/favorites/{serviceId}
-
-- Controller tag: ServiceFavorite
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: serviceId (path, required, integer)
-- Body: none
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+## ServiceOfferingController.java - /api/services
 
-## GET /api/homes
-
-- Controller tag: Home
-- Frontend / role: Homes.jsx / Services.jsx — HOMEOWNER
-- Parameters: pageable (query, required, Pageable)
-- Body: none
-- Responses: 200: PageHome; 400: PageHome; 401: PageHome; 403: PageHome; 404: PageHome
+Frontend consumer: Services.jsx / Provider.jsx.
 
-## POST /api/homes
-
-- Controller tag: Home
-- Frontend / role: Homes.jsx / Services.jsx — HOMEOWNER
-- Parameters: none
-- Body: application/json: HomeRequest
-- Responses: 201: Home; 400: Home; 401: Home; 403: Home; 404: Home
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/services` | Authenticated; service authorization applies | `public Page<ServiceResponse> getAllServiceOffering(@RequestParam(required = false) Long categoryId, @RequestParam(required = false) Long providerId, Pageable pageable)` | `200: Page<ServiceResponse>` |
+| `GET /api/services/mine` | hasRole('PROVIDER') | `public Page<ServiceResponse> getCurrentProviderServices(Pageable pageable)` | `200: Page<ServiceResponse>` |
+| `GET /api/services/{serviceId}` | Authenticated; service authorization applies | `public ServiceResponse getServiceOfferingById(@PathVariable Long serviceId)` | `200: ServiceResponse` |
+| `POST /api/services` | hasRole('PROVIDER') | `public ResponseEntity<ServiceResponse> createServiceOffering(@Valid @RequestBody ServiceRequest request)` | `201: ResponseEntity<ServiceResponse>` |
+| `PUT /api/services/{serviceId}` | hasRole('PROVIDER') | `public ServiceResponse updateServiceOffering(@PathVariable Long serviceId, @Valid @RequestBody ServiceRequest request)` | `200: ServiceResponse` |
+| `DELETE /api/services/{serviceId}` | hasRole('PROVIDER') | `public void deactivateServiceOffering(@PathVariable Long serviceId)` | `204: void` |
+| `GET /api/services/search` | Authenticated; service authorization applies | `public Page<ServiceResponse> searchServices( @RequestParam(required = false) String name, @RequestParam(required = false) Long categoryId, @RequestParam(required = false) Long providerId, @RequestParam(required = false) Double minPrice, @RequestParam(required = false) Double maxPrice, Pageable pageable)` | `200: Page<ServiceResponse>` |
 
-## GET /api/homes/{homeId}
-
-- Controller tag: Home
-- Frontend / role: Homes.jsx / Services.jsx — HOMEOWNER
-- Parameters: homeId (path, required, integer)
-- Body: none
-- Responses: 200: Home; 400: Home; 401: Home; 403: Home; 404: Home
+## ServiceReportController.java - /api/reports
 
-## PUT /api/homes/{homeId}
-
-- Controller tag: Home
-- Frontend / role: Homes.jsx / Services.jsx — HOMEOWNER
-- Parameters: homeId (path, required, integer)
-- Body: application/json: HomeRequest
-- Responses: 200: Home; 400: Home; 401: Home; 403: Home; 404: Home
+Frontend consumer: Booking details.
 
-## DELETE /api/homes/{homeId}
-
-- Controller tag: Home
-- Frontend / role: Homes.jsx / Services.jsx — HOMEOWNER
-- Parameters: homeId (path, required, integer)
-- Body: none
-- Responses: 204: empty; 400: empty; 401: empty; 403: empty; 404: empty
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/reports/booking/{bookingId}` | Authenticated; service authorization applies | `public Map<String,Object> getReport(@PathVariable Long bookingId)` | `200: Map<String,Object>` |
+| `POST /api/reports/booking/{bookingId}` | hasRole('PROVIDER') | `public Map<String,Object> submitReport(@PathVariable Long bookingId, @Valid @RequestBody ReportRequest request)` | `200: Map<String,Object>` |
 
-## GET /api/notifications
-
-- Controller tag: Notification
-- Frontend / role: NotificationContext / Saved.jsx — authenticated, own records
-- Parameters: none
-- Body: none
-- Responses: 200: array<object>; 400: array<object>; 401: array<object>; 403: array<object>; 404: array<object>
+## ServiceReviewController.java - /api/reviews
 
-## GET /api/notifications/stream
-
-- Controller tag: Notification
-- Frontend / role: NotificationContext / Saved.jsx — authenticated, own records
-- Parameters: none
-- Body: none
-- Responses: 200: SseEmitter; 400: SseEmitter; 401: SseEmitter; 403: SseEmitter; 404: SseEmitter
+Frontend consumer: Provider details / own reviews.
 
-## GET /api/notifications/unread-count
-
-- Controller tag: Notification
-- Frontend / role: NotificationContext / Saved.jsx — authenticated, own records
-- Parameters: none
-- Body: none
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/reviews/mine` | hasRole('HOMEOWNER') | `public Page<Map<String,Object>> getMyReviews(Pageable pageable)` | `200: Page<Map<String,Object>>` |
+| `POST /api/reviews` | hasRole('HOMEOWNER') | `public Map<String,Object> createReview(@Valid @RequestBody ReviewRequest request)` | `200: Map<String,Object>` |
+| `GET /api/reviews/provider/{providerId}` | Authenticated; service authorization applies | `public List<Map<String,Object>> getProvider(@PathVariable Long providerId)` | `200: List<Map<String,Object>>` |
 
-## PATCH /api/notifications/{id}/read
-
-- Controller tag: Notification
-- Frontend / role: NotificationContext / Saved.jsx — authenticated, own records
-- Parameters: id (path, required, integer)
-- Body: none
-- Responses: 200: empty; 400: empty; 401: empty; 403: empty; 404: empty
+## UserController.java - /api/users
 
-## POST /api/providers
-
-- Controller tag: Provider
-- Frontend / role: Provider.jsx — PROVIDER
-- Parameters: none
-- Body: application/json: ProviderRequest
-- Responses: 201: ProviderResponse; 400: ProviderResponse; 401: ProviderResponse; 403: ProviderResponse; 404: ProviderResponse
+Frontend consumer: Account.jsx / AuthContext.
 
-## PUT /api/providers/portfolio
-
-- Controller tag: Provider
-- Frontend / role: Provider.jsx — PROVIDER
-- Parameters: none
-- Body: application/json: PortfolioRequest
-- Responses: 200: ProviderResponse; 400: ProviderResponse; 401: ProviderResponse; 403: ProviderResponse; 404: ProviderResponse
+| Method and complete path | Additional role restriction | Exact request signature | Success response |
+|---|---|---|---|
+| `GET /api/users/profile` | Authenticated; service authorization applies | `public UserResponse getCurrentUserProfile()` | `200: UserResponse` |
+| `PUT /api/users/profile` | Authenticated; service authorization applies | `public UserResponse updateUserProfile(@Valid @RequestBody UpdateUserRequest request)` | `200: UserResponse` |
+| `PUT /api/users/change-password` | Authenticated; service authorization applies | `public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request)` | `204: ResponseEntity<Void>` |
+| `POST /api/users/profile-picture` | Authenticated; service authorization applies | `public Map<String,String> uploadProfilePicture(@RequestParam MultipartFile file)` | `200: Map<String,String>` |
 
-## GET /api/providers/profile
-
-- Controller tag: Provider
-- Frontend / role: Provider.jsx — PROVIDER
-- Parameters: none
-- Body: none
-- Responses: 200: ProviderResponse; 400: ProviderResponse; 401: ProviderResponse; 403: ProviderResponse; 404: ProviderResponse
+**Total: 70 operations across 16 controllers.**
 
-## GET /api/reports/booking/{bookingId}
-
-- Controller tag: ServiceReport
-- Frontend / role: Bookings.jsx — participant reads; PROVIDER submission
-- Parameters: bookingId (path, required, integer)
-- Body: none
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+## Map response contracts and authorization details
 
-## POST /api/reports/booking/{bookingId}
-
-- Controller tag: ServiceReport
-- Frontend / role: Bookings.jsx — participant reads; PROVIDER submission
-- Parameters: bookingId (path, required, integer)
-- Body: application/json: ReportRequest
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+- Auth registration/verification/recovery/reset return message objects; login returns LoginResponse with token and type. Verification emails link directly to the backend; reset emails contain a token. There is no server logout/revocation or refresh-token endpoint.
+- Admin provider list returns Page<{provider: ProviderResponse, applicant: UserResponse, createdAt, updatedAt}>. Detail returns that same application object. Applicant contact/status/verification data is ADMIN-only; no password/hash is exposed. Status filters use only PENDING, APPROVED and SUSPENDED. Approval reuses the original approval method.
+- Service list/search return discoverable active offerings; optional categoryId/providerId filters, search price/name filters and pagination are supported. Mine includes the current provider's inactive services. Hidden detail reads are restricted to owner/ADMIN; authorized historical booking reads are independent and remain available.
+- Provider marketplace details require approved/active provider accounts. Current profile reads permit the provider to see their own pending status. Portfolio uses existing stored text and emergency preferences; no portfolio-image API exists.
+- AvailabilityResponse contains scheduling fields and providerId, not a nested account entity. timeOff=true reads are PROVIDER-only and require ownership. DELETE soft-removes availability/time off without enabling a period. PUT preserves its period type.
+- Available-times returns sorted unique LocalTime suggestions at one-minute resolution; no reservation is created. Booking creation revalidates under the provider lock. Normal notice, emergency opt-in, same-day end time, occupancy, time off and live offers apply.
+- Booking list is current-user scoped: assigned provider bookings for PROVIDER; customer bookings otherwise, including ADMIN. It is not a global admin list. Detail/history permit owner, assigned provider or ADMIN. Cancellation permits homeowner owner or ADMIN; status changes permit assigned provider/ADMIN with the existing transition rules. BookingResponse exposes response/report deadlines, final price, provider ID and timestamps.
+- Booking history is Page<{id,action,recordedAt,actorId,actorRole,status}> from existing audits. It excludes raw descriptions/contact data and does not reconstruct missing events. No exact persisted expiredAt is available.
+- Reschedule map: id, bookingId, date, start, status, bookingDate, bookingStartTime, bookingEndTime, bookingStatus, serviceId, serviceName, providerId, providerName, createdAt, updatedAt. Booking fields describe the current appointment, not an immutable original snapshot after approval. Listing is participant scoped before pagination; ADMIN has no participant endpoint privilege.
+- Waitlist map: id, serviceId, homeId, date, start, status, offerExpiresAt. The expiry can be null and is informational; backend claim/expiration logic remains authoritative. Listing already includes own offers and historical statuses; no duplicate offers endpoint is required.
+- Favorite map: id, serviceId. DELETE takes the favorite ID, not the service ID.
+- Public/provider review map: id, rating, providerId, comment, createdAt. Internal bookingId is intentionally omitted. Own/submission maps additionally include bookingId, serviceId and serviceName. Mine is a HOMEOWNER-only Page scoped to authentication. Provider review listing retains its existing List response.
+- Report map: id, bookingId, workPerformed, materialsUsed, recommendation. Submission uses workDone, materialsUsed and recommendation. Reads are private to the booking homeowner/assigned provider; ADMIN has no override. Submission requires an ended CONFIRMED/AWAITING_REPORT appointment and assigned provider. Required report before COMPLETED remains enforced by BookingService. Report deadline is already in BookingResponse.
+- Assessment map: id, rating, comment. Only assigned PROVIDER reviewing a PENDING booking can read prior homeowner assessments. Only assigned PROVIDER after COMPLETED can submit one. No homeowner/admin/public assessment access or raw author/homeowner entity is exposed.
+- Notification history is List<{id,message,read,type}> sorted newest first. Count is {count}. History, count, read mutation and stream use the current account ID; no client-selected recipient. PATCH retains the existing empty HTTP 200 response. Stream requires Accept: text/event-stream plus the Bearer header and sends named booking events. Persistent after-commit delivery covers bookings/reschedules/waitlists; no second system was added.
+- Report/review/assessment text request limits now match existing 3000-character columns. No schema was changed. Other validation and business exceptions remain in the existing services.
 
-## POST /api/reschedules/booking/{bookingId}
-
-- Controller tag: BookingReschedule
-- Frontend / role: Bookings.jsx request (HOMEOWNER); Provider.jsx decision (PROVIDER)
-- Parameters: bookingId (path, required, integer)
-- Body: application/json: Request
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+## Errors and frontend handling
 
-## PUT /api/reschedules/{id}/decision
-
-- Controller tag: BookingReschedule
-- Frontend / role: Bookings.jsx request (HOMEOWNER); Provider.jsx decision (PROVIDER)
-- Parameters: id (path, required, integer)
-- Body: application/json: Decision
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+ApiError is {timestamp,status,error,message,path}. Missing/invalid query and path parameter conversions return safe 400 messages. Authentication is 401, authorization 403, missing records 404, duplicate-information conflicts 409, booking/status conflicts 422, rate limiting 429 where configured, unexpected server errors 500. Handle empty responses/204 without JSON parsing. Multipart profile upload uses field file and permits verified JPG/PNG/WEBP content up to 5,000,000 bytes; /uploads serves the returned URL. Native EventSource cannot send the required Bearer header; existing frontend streaming fetch is the applicable approach.
 
-## POST /api/reviews
-
-- Controller tag: ServiceReview
-- Frontend / role: Saved.jsx reads (authenticated); Bookings.jsx create (HOMEOWNER)
-- Parameters: none
-- Body: application/json: ReviewRequest
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
+## Exact DTO and enum source contracts
 
-## GET /api/reviews/provider/{providerId}
-
-- Controller tag: ServiceReview
-- Frontend / role: Saved.jsx reads (authenticated); Bookings.jsx create (HOMEOWNER)
-- Parameters: providerId (path, required, integer)
-- Body: none
-- Responses: 200: array<object>; 400: array<object>; 401: array<object>; 403: array<object>; 404: array<object>
+The following current source declarations are included to preserve exact JSON field spellings and validation annotations. Controller-local request records and Map contracts are shown in the operation signatures/notes above.
 
-## GET /api/services
-
-- Controller tag: ServiceOffering
-- Frontend / role: Services.jsx / Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: categoryId (query, optional, integer); pageable (query, required, Pageable)
-- Body: none
-- Responses: 200: PageServiceResponse; 400: PageServiceResponse; 401: PageServiceResponse; 403: PageServiceResponse; 404: PageServiceResponse
-
-## POST /api/services
-
-- Controller tag: ServiceOffering
-- Frontend / role: Services.jsx / Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: none
-- Body: application/json: ServiceRequest
-- Responses: 201: ServiceResponse; 400: ServiceResponse; 401: ServiceResponse; 403: ServiceResponse; 404: ServiceResponse
-
-## GET /api/services/search
-
-- Controller tag: ServiceOffering
-- Frontend / role: Services.jsx / Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: name (query, optional, string); categoryId (query, optional, integer); minPrice (query, optional, number); maxPrice (query, optional, number); pageable (query, required, Pageable)
-- Body: none
-- Responses: 200: PageServiceResponse; 400: PageServiceResponse; 401: PageServiceResponse; 403: PageServiceResponse; 404: PageServiceResponse
-
-## GET /api/services/{serviceId}
-
-- Controller tag: ServiceOffering
-- Frontend / role: Services.jsx / Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: serviceId (path, required, integer)
-- Body: none
-- Responses: 200: ServiceResponse; 400: ServiceResponse; 401: ServiceResponse; 403: ServiceResponse; 404: ServiceResponse
-
-## PUT /api/services/{serviceId}
-
-- Controller tag: ServiceOffering
-- Frontend / role: Services.jsx / Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: serviceId (path, required, integer)
-- Body: application/json: ServiceRequest
-- Responses: 200: ServiceResponse; 400: ServiceResponse; 401: ServiceResponse; 403: ServiceResponse; 404: ServiceResponse
-
-## DELETE /api/services/{serviceId}
-
-- Controller tag: ServiceOffering
-- Frontend / role: Services.jsx / Provider.jsx — authenticated reads; PROVIDER mutations
-- Parameters: serviceId (path, required, integer)
-- Body: none
-- Responses: 204: empty; 400: empty; 401: empty; 403: empty; 404: empty
-
-## PUT /api/users/change-password
-
-- Controller tag: User
-- Frontend / role: Account.jsx / AuthContext — authenticated
-- Parameters: none
-- Body: application/json: ChangePasswordRequest
-- Responses: 204: empty; 400: empty; 401: empty; 403: empty; 404: empty
-
-## GET /api/users/profile
-
-- Controller tag: User
-- Frontend / role: Account.jsx / AuthContext — authenticated
-- Parameters: none
-- Body: none
-- Responses: 200: UserResponse; 400: UserResponse; 401: UserResponse; 403: UserResponse; 404: UserResponse
-
-## PUT /api/users/profile
-
-- Controller tag: User
-- Frontend / role: Account.jsx / AuthContext — authenticated
-- Parameters: none
-- Body: application/json: UpdateUserRequest
-- Responses: 200: UserResponse; 400: UserResponse; 401: UserResponse; 403: UserResponse; 404: UserResponse
-
-## POST /api/users/profile-picture
-
-- Controller tag: User
-- Frontend / role: Account.jsx / AuthContext — authenticated
-- Parameters: none
-- Body: multipart/form-data: object
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
-
-## GET /api/waitlist
-
-- Controller tag: BookingWaitlist
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: none
-- Body: none
-- Responses: 200: array<object>; 400: array<object>; 401: array<object>; 403: array<object>; 404: array<object>
-
-## POST /api/waitlist
-
-- Controller tag: BookingWaitlist
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: none
-- Body: application/json: JoinRequest
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
-
-## DELETE /api/waitlist/{id}
-
-- Controller tag: BookingWaitlist
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: id (path, required, integer)
-- Body: none
-- Responses: 200: empty; 400: empty; 401: empty; 403: empty; 404: empty
-
-## POST /api/waitlist/{id}/claim
-
-- Controller tag: BookingWaitlist
-- Frontend / role: Saved.jsx / Services.jsx — HOMEOWNER
-- Parameters: id (path, required, integer)
-- Body: none
-- Responses: 200: object; 400: object; 401: object; 403: object; 404: object
-
-Total: 59 operations.
-
-## Exact request and response schemas
-
-See [openapi.json](openapi.json) for full schemas, validation constraints, enums, and Spring Page structures. To keep controller-defined maps explicit, their source return mappings are included below.
-
-### AdminController.java
+### dto/AvailabilityRequest.java
 
 ```java
-package com.ga.HomeHub.controller;
+package com.ga.HomeHub.dto;
 
-@Tag(name="Admin", description="HomeHub admin API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/admin")
-@PreAuthorize("hasRole('ADMIN')")
-public class AdminController {
-    private final UserService userService;
-    private final ProviderService providerService;
-    @GetMapping("/users")
-    public Page<UserResponse> getAllUsers(Pageable pageable){
-        return userService.getAllUsers(pageable);
-    }
-    @PutMapping("/providers/{providerId}/approve")
-    public ProviderResponse approveProvider(@PathVariable Long providerId){
-        ProviderProfile provider = providerService.updateProviderStatus(providerId);
-        return providerService.toResponse(provider);
-    }
-    @DeleteMapping("/users/{userId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivateUser(@PathVariable Long userId){
-        userService.deactivate(userId);
+import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+public record AvailabilityRequest(@NotNull LocalDate date, @NotNull LocalTime startTime, @NotNull LocalTime endTime) {
+}
+```
+
+### dto/AvailabilityResponse.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+//Expose scheduling fields without serializing the provider's linked user account.
+public record AvailabilityResponse(Long id,Long providerId,LocalDate date,LocalTime startTime,LocalTime endTime,
+                                   boolean available,boolean timeOff,LocalDateTime createdAt,LocalDateTime updatedAt){
+}
+```
+
+### dto/BookingRequest.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import com.ga.HomeHub.model.enums.BookingType;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+public record BookingRequest(@NotNull Long homeId, @NotNull Long serviceId, @NotNull LocalDate bookingDate, @NotNull LocalTime startTime, String note, BookingType bookingType) {
+}
+```
+
+### dto/BookingResponse.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import com.ga.HomeHub.model.enums.BookingStatus;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+public record BookingResponse(
+        Long id,
+        Long homeId,
+        Long serviceId,
+        String serviceName,
+        String providerName,
+        LocalDate bookingDate,
+        LocalTime startTime,
+        LocalTime endTime,
+        BookingStatus status,
+        String note,
+        String bookingType,
+        Double finalPrice,
+        LocalDateTime responseDeadline,
+        Long providerId,
+        LocalDateTime reportDeadline,
+        boolean lateCancellation,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+) {
+}
+```
+
+### dto/BookingStatusRequest.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import com.ga.HomeHub.model.enums.BookingStatus;
+import jakarta.validation.constraints.NotNull;
+
+public record BookingStatusRequest(@NotNull BookingStatus status) {
+}
+```
+
+### dto/CategoryRequest.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record CategoryRequest(@NotBlank String name, String description) {
+}
+```
+
+### dto/HomeRequest.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record HomeRequest(@NotBlank String name, @NotBlank String city, @NotBlank String address) {
+}
+```
+
+### dto/ProviderRequest.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record ProviderRequest(@NotBlank String businessName, String description) {
+}
+```
+
+### dto/ProviderResponse.java
+
+```java
+package com.ga.HomeHub.dto;
+
+public record ProviderResponse(
+        Long id,
+        String businessName,
+        String description,
+        String providerStatus,
+        String portfolioDescription,
+        boolean emergencyEnabled
+) {
+}
+```
+
+### dto/ServiceRequest.java
+
+```java
+package com.ga.HomeHub.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+public record ServiceRequest(@NotNull Long categoryId, @NotBlank String name, String description, @NotNull @Positive Double price, @NotNull @Positive Integer durationMinutes, Boolean emergencyEnabled) {
+}
+```
+
+### dto/ServiceResponse.java
+
+```java
+package com.ga.HomeHub.dto;
+
+public record ServiceResponse(
+        Long id,
+        String name,
+        String description,
+        Double price,
+        Integer durationMinutes,
+        String categoryName,
+        String providerName,
+        Long categoryId,
+        Long providerId,
+        String status,
+        String categoryStatus,
+        String providerStatus,
+        boolean emergencyEnabled,
+        boolean providerEmergencyEnabled,
+        boolean emergencyEligible
+) {
+}
+```
+
+### dto/auth/ChangePasswordRequest.java
+
+```java
+package com.ga.HomeHub.dto.auth;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record ChangePasswordRequest(
+        @NotBlank
+        String currentPassword,
+        @NotBlank
+        @Size(min = 8)
+        String newPassword) { }
+```
+
+### dto/auth/ForgotPasswordRequest.java
+
+```java
+package com.ga.HomeHub.dto.auth;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+public record ForgotPasswordRequest(@Email @NotBlank String email) {
+}
+```
+
+### dto/auth/LoginRequest.java
+
+```java
+package com.ga.HomeHub.dto.auth;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+public record LoginRequest(@Email @NotBlank String email, @NotBlank String password) {
+}
+```
+
+### dto/auth/LoginResponse.java
+
+```java
+package com.ga.HomeHub.dto.auth;
+
+public record LoginResponse(String token, String type) {
+    public LoginResponse(String token){
+        this(token, "Bearer");
     }
 }
 ```
 
-### AuthController.java
+### dto/auth/RegisterRequest.java
 
 ```java
-package com.ga.HomeHub.controller;
+package com.ga.HomeHub.dto.auth;
+
+import com.ga.HomeHub.model.enums.Role;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+public record RegisterRequest(
+        @NotBlank String firstname,
+        @NotBlank String lastName,
+        @NotBlank @Email String email,
+        @NotBlank @Size(min = 8) String password,
+        @NotBlank String phoneNumber,
+        @NotNull Role role) { }
+```
+
+### dto/auth/ResetPasswordRequest.java
+
+```java
+package com.ga.HomeHub.dto.auth;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record ResetPasswordRequest(
+        @NotBlank
+        String token,
+        @NotBlank
+        @Size(min = 8)
+        String newPassword) { }
+```
+
+### dto/user/UpdateUserRequest.java
+
+```java
+package com.ga.HomeHub.dto.user;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record UpdateUserRequest(@NotBlank String firstName, @NotBlank String lastName, String phoneNumber) {
+}
+```
+
+### dto/user/UserResponse.java
+
+```java
+package com.ga.HomeHub.dto.user;
+
+import com.ga.HomeHub.model.User;
+import com.ga.HomeHub.model.enums.Role;
+import com.ga.HomeHub.model.enums.UserStatus;
+import lombok.Data;
+
+import java.time.LocalDateTime;
 
 
+public record UserResponse(Long id, String firstName, String lastName, String email, String phoneNumber, String profilePictureUrl, Role role, UserStatus status, boolean isEmailVerified, LocalDateTime createdAt, LocalDateTime updatedAt) {
 
-@Tag(name="Auth", description="HomeHub auth API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/auth")
-public class AuthController {
-    private final AuthService authService;
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request){
-        authService.registerUser(request);
-        return ResponseEntity.status(201).body(Map.of("message","Registration success. Verify your email."));
-    }
-    @GetMapping("/verify")
-    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
-        authService.verifyEmail(token);
-        return ResponseEntity.ok(Map.of("message", "Email verified. You can login."));
-    }
-    @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request){
-        return authService.loginUser(request);
-    }
-    @PostMapping("/forgot-password")
-    public Map<String,String> forgot(@Valid @RequestBody ForgotPasswordRequest request){
-        authService.requestPasswordReset(request.email());
-        return Map.of("message","Sent reset if the account exist");
-    }
-    @PostMapping("/reset-password")
-    public Map<String,String> reset(@Valid @RequestBody ResetPasswordRequest request){
-        authService.resetPassword(request);
-        return Map.of("message","Password reset successful");
+    public static UserResponse from(User user) {
+        return new UserResponse(user.getId(), user.getFirstName(), user.getLastName(), user.getEmailAddress(), user.getPhoneNumber(), user.getProfilePictureUrl(), user.getRole(), user.getStatus(), user.isEmailVerified(), user.getCreatedAt(), user.getUpdatedAt());
     }
 }
 ```
 
-### AvailabilityController.java
+### model/enums/BookingStatus.java
 
 ```java
-package com.ga.HomeHub.controller;
+package com.ga.HomeHub.model.enums;
 
-
-
-@Tag(name="Availability", description="HomeHub availability API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/availability")
-public class AvailabilityController {
-    private final AvailabilityService availabilityService;
-    @GetMapping
-    public List<Availability> getProviderAvailabilityByDate(@RequestParam Long providerId, @RequestParam LocalDate date){
-        return availabilityService.getProviderAvailabilityByDate(providerId, date);
-    }
-    @PostMapping
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ResponseEntity<Availability> createAvailability(@Valid @RequestBody AvailabilityRequest request){
-        return ResponseEntity.status(201).body(availabilityService.createAvailability(request));
-    }
-    @DeleteMapping("/{availabilityId}")
-    @PreAuthorize("hasRole('PROVIDER')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAvailability(@PathVariable Long availabilityId){
-        availabilityService.deleteAvailability(availabilityId);
-    }
-    @PostMapping("/time-off")
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ResponseEntity<Availability> blockTimeOff(@Valid @RequestBody AvailabilityRequest request){
-        return ResponseEntity.status(201).body(availabilityService.blockTimeOff(request));
-    }
+public enum BookingStatus {
+    PENDING,
+    CONFIRMED,
+    CANCELLED,
+    COMPLETED,
+    EXPIRED,
+    REJECTED,
+    AWAITING_REPORT
 }
 ```
 
-### BookingController.java
+### model/enums/BookingType.java
 
 ```java
-package com.ga.HomeHub.controller;
+package com.ga.HomeHub.model.enums;
 
-
-@Tag(name="Booking", description="HomeHub booking API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/booking")
-public class BookingController {
-    private final BookingService bookingService;
-    @PostMapping
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public ResponseEntity<BookingResponse> createBooking(@Valid @RequestBody BookingRequest request){
-        Booking booking = bookingService.createBooking(request);
-        return ResponseEntity.status(201).body(bookingService.toResponse(booking));
-    }
-    @GetMapping
-    public Page<BookingResponse> getCurrentUserBookings(@RequestParam(required = false)BookingStatus status, Pageable pageable){
-        return bookingService.getCurrentUserBookings(status, pageable).map(bookingService::toResponse);
-    }
-    @GetMapping("/{bookingId}")
-    public BookingResponse getBookingById(@PathVariable Long bookingId) {
-        return bookingService.toResponse(bookingService.getBookingById(bookingId));
-    }
-    @DeleteMapping("/{bookingId}")
-    public BookingResponse cancelBooking(@PathVariable Long bookingId){
-        return bookingService.toResponse(bookingService.cancelBooking(bookingId));
-    }
-    @PutMapping("/{bookingId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN','PROVIDER')")
-    public BookingResponse updateBookingStatus(@PathVariable Long bookingId, @Valid @RequestBody BookingStatusRequest request){
-        return bookingService.toResponse(bookingService.updateBookingStatus(bookingId, request.status()));
-    }
+public enum BookingType {
+    NORMAL,
+    EMERGENCY
 }
+```
+
+### model/enums/CategoryStatus.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum CategoryStatus {
+    ACTIVE,
+    INACTIVE
+}
+```
+
+### model/enums/ProviderStatus.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum ProviderStatus {
+    PENDING,
+    APPROVED,
+    SUSPENDED
+}
+```
+
+### model/enums/RescheduleStatus.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum RescheduleStatus {
+    PENDING,
+    APPROVED,
+    REJECTED,
+    CANCELLED
+}
+```
+
+### model/enums/Role.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum Role {
+    HOMEOWNER,
+    PROVIDER,
+    ADMIN
+}
+```
+
+### model/enums/ServiceStatus.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum ServiceStatus {
+    ACTIVE,
+    INACTIVE
+}
+```
+
+### model/enums/UserStatus.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum UserStatus {
+    ACTIVE,
+    INACTIVE
+}
+```
+
+### model/enums/WaitlistStatus.java
+
+```java
+package com.ga.HomeHub.model.enums;
+
+public enum WaitlistStatus {
+    WAITING,
+    OFFERED,
+    CLAIMED,
+    EXPIRED,
+    CANCELLED
+}
+```
+
+
+## Controller-local request records
+
+These are existing records nested in their controller classes, not new standalone DTOs.
+
+### BookingRescheduleController.java
+
+```java
+public record Request(@NotNull LocalDate date, @NotNull LocalTime start){}
 ```
 
 ### BookingRescheduleController.java
 
 ```java
-package com.ga.HomeHub.controller;
-
-
-
-@Tag(name="BookingReschedule", description="HomeHub bookingreschedule API endpoints")
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/reschedules")
-public class BookingRescheduleController {
-    private final BookingRescheduleService service;
-    public record Request(@NotNull LocalDate date, @NotNull LocalTime start){}
-    public record Decision(@NotNull boolean approve){}
-    @PostMapping("/booking/{bookingId}")
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public Map<String,Object> requestReschedule(@PathVariable Long bookingId,@Valid @RequestBody Request request){
-        return response(service.request(bookingId,request.date(),request.start()));
-    }
-    @PutMapping("/{id}/decision")
-    @PreAuthorize("hasRole('PROVIDER')")
-    public Map<String,Object> decideReschedule(@PathVariable Long id,@Valid @RequestBody Decision decision){
-        return response(service.decide(id,decision.approve()));
-    }
-
-    private Map<String,Object> response(BookingRescheduleRequest r){
-        return Map.of("id",r.getId(),"bookingId",r.getBooking().getId(),"date",r.getRequestedDate().toString(), "start",r.getRequestedStartTime().toString(),"status",r.getStatus().name());
-    }
-}
+public record Decision(@NotNull Boolean approve){}
 ```
 
 ### BookingWaitlistController.java
 
 ```java
-package com.ga.HomeHub.controller;
-
-
-@Tag(name="BookingWaitlist", description="HomeHub bookingwaitlist API endpoints")
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/waitlist")
-@PreAuthorize("hasRole('HOMEOWNER')")
-public class BookingWaitlistController {
-    private final BookingWaitlistService waitlist;
-    private final BookingService bookings;
-    public record JoinRequest(@NotNull Long serviceId,@NotNull Long homeId,@NotNull LocalDate date,@NotNull LocalTime start){}
-    @PostMapping
-    public Map<String,Object> joinWaitlist(@Valid @RequestBody JoinRequest request){
-        return response(waitlist.joinWaitlist(request.serviceId(),request.homeId(),request.date(),request.start()));
-    }
-    @GetMapping
-    public List<Map<String,Object>> getMyWaitlist(){
-        return waitlist.getMyWaitlist().stream().map(this::response).toList();
-    }
-    @DeleteMapping("/{id}")
-    public void leaveWaitlist(@PathVariable Long id){
-        waitlist.leaveWaitlist(id);
-    }
-    @PostMapping("/{id}/claim")
-    public Object claimWaitlistOffer(@PathVariable Long id){
-        Booking booking=waitlist.claimWaitlistOffer(id);
-        return bookings.toResponse(booking);
-    }
-
-    private Map<String,Object> response(BookingWaitlist entry){
-        return Map.of("id",entry.getId(),"serviceId",entry.getService().getId(),"homeId",entry.getHome().getId(), "date",entry.getRequestedDate().toString(),"start",entry.getRequestedStartTime().toString(),"status",entry.getStatus().name());
-    }
-}
-```
-
-### CategoryController.java
-
-```java
-package com.ga.HomeHub.controller;
-
-
-@Tag(name="Category", description="HomeHub category API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/categories")
-public class CategoryController {
-    private final CategoryService categoryService;
-    @GetMapping
-    public Page<Category> getAllCategories(Pageable pageable){
-        return categoryService.getAllCategories(pageable);
-    }
-    @GetMapping("/{categoryId}")
-    public Category getCategoryById(@PathVariable Long categoryId){
-        return categoryService.getCategoryById(categoryId);
-    }
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Category> createCategory(@Valid @RequestBody CategoryRequest request){
-        return ResponseEntity.status(201).body(categoryService.createCategory(request));
-    }
-    @PutMapping("/{categoryId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Category updateCategory(@PathVariable Long categoryId, @Valid @RequestBody CategoryRequest request){
-        return categoryService.updateCategory(categoryId,request);
-    }
-    @DeleteMapping("/{categoryId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteCategory(@PathVariable Long categoryId){
-        categoryService.deleteCategory(categoryId);
-    }
-}
-```
-
-### HomeController.java
-
-```java
-package com.ga.HomeHub.controller;
-
-
-@Tag(name="Home", description="HomeHub home API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/homes")
-public class HomeController {
-    private final HomeService homeService;
-    @PostMapping
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public ResponseEntity<Home> createHome(@Valid @RequestBody HomeRequest request){
-        return ResponseEntity.status(201).body(homeService.createHome(request));
-    }
-    @GetMapping
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public Page<Home> getCurrentUserHomes(Pageable pageable){
-        return homeService.getCurrentUserHomes(pageable);
-    }
-    @GetMapping("/{homeId}")
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public Home getHomeById(@PathVariable Long homeId){
-        return homeService.getHomeById(homeId);
-    }
-    @PutMapping("/{homeId}")
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public Home updateHome(@PathVariable Long homeId, @Valid @RequestBody HomeRequest request){
-        return homeService.updateHome(homeId, request);
-    }
-    @DeleteMapping("/{homeId}")
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteHome(@PathVariable Long homeId){
-        homeService.deleteHome(homeId);
-    }
-}
+public record JoinRequest(@NotNull Long serviceId,@NotNull Long homeId,@NotNull LocalDate date,@NotNull LocalTime start){}
 ```
 
 ### HomeownerAssessmentController.java
 
 ```java
-package com.ga.HomeHub.controller;
-
-
-@Tag(name="HomeownerAssessment", description="HomeHub homeownerassessment API endpoints")
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/assessments")
-@PreAuthorize("hasRole('PROVIDER')")
-public class HomeownerAssessmentController {
-    private final HomeownerAssessmentService service;
-    public record AssessmentRequest(Integer rating,String comment){}
-    @PostMapping("/booking/{bookingId}")
-    public Map<String, Object> submitAssessment(@PathVariable Long bookingId, @Valid @RequestBody AssessmentRequest request){
-        return response(service.submitHomeownerAssessment(bookingId, request.rating(), request.comment()));
-    }
-    @GetMapping("/booking/{bookingId}")
-    public List<Map<String,Object>> getAssessment(@PathVariable Long bookingId){
-        return service.getHomeownerAssessments(bookingId).stream().map(this::response).toList();
-    }
-
-    private Map<String, Object> response(HomeownerAssessment assessment){
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", assessment.getId());
-        result.put("rating", assessment.getRating());
-        result.put("comment", assessment.getComment());
-        return result;
-    }
-}
-```
-
-### NotificationController.java
-
-```java
-package com.ga.HomeHub.controller;
-
-
-
-@Tag(name="Notification", description="HomeHub notification API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/notifications")
-public class NotificationController {
-    private final NotificationService notificationService;
-    private final CurrentUserService currentUserService;
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeToNotifications(){
-        return notificationService.subscribeToNotifications(currentUserService.getCurrentUser().getId());
-    }
-    @GetMapping
-    public List<Map<String, Object>> getHistory(){
-        return notificationService.history(currentUserService.getCurrentUser().getId()).stream().map(n->Map.<String,Object>of("id",n.getId(),"message",n.getMessage(),"read",n.isRead(),"type",n.getEventType())).toList();
-    }
-    @GetMapping("/unread-count")
-    public Map<String,Long> getUnreadCount(){
-        return Map.of("count",notificationService.unread(currentUserService.getCurrentUser().getId()));
-    }
-    @PatchMapping("/{id}/read")
-    public void markRead(@PathVariable Long id){
-        notificationService.markRead(currentUserService.getCurrentUser().getId(),id);
-    }
-}
+public record AssessmentRequest(Integer rating,@Size(max=3000) String comment){}
 ```
 
 ### ProviderController.java
 
 ```java
-package com.ga.HomeHub.controller;
-
-
-@Tag(name="Provider", description="HomeHub provider API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/providers")
-public class ProviderController {
-    private final ProviderService providerService;
-    @PostMapping
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ResponseEntity<ProviderResponse> createProviderProfile(@Valid @RequestBody ProviderRequest request){
-        ProviderProfile provider = providerService.createProviderProfile(request);
-        return ResponseEntity.status(201).body(providerService.toResponse(provider));
-    }
-    @GetMapping("/profile")
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ProviderResponse getCurrentProviderProfile(){
-        return providerService.toResponse(providerService.getCurrentProviderProfile());
-    }
-
-    public record PortfolioRequest(String description,boolean emergencyEnabled){}
-    @PutMapping("/portfolio")
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ProviderResponse updatePortfolio(@RequestBody PortfolioRequest request){
-        return providerService.toResponse(providerService.updatePortfolio(request.description(),request.emergencyEnabled()));
-    }
-
-}
-```
-
-### ServiceFavoriteController.java
-
-```java
-package com.ga.HomeHub.controller;
-
-
-
-@Tag(name="ServiceFavorite", description="HomeHub servicefavorite API endpoints")
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/favorites")
-@PreAuthorize("hasRole('HOMEOWNER')")
-public class ServiceFavoriteController {
-    private final ServiceFavoriteService service;
-    @PostMapping("/{serviceId}")
-    public Map<String,Object> addFavorite(@PathVariable Long serviceId){
-        return response(service.addFavorite(serviceId));
-    }
-    @GetMapping
-    public List<Map<String,Object>> getMyFavorites(){
-        return service.getMyFavorite().stream().map(this::response).toList();
-    }
-    @DeleteMapping("/{favoriteId}")
-    public void removefavorite(@PathVariable Long favoriteId){
-        service.removeFavorite(favoriteId);
-    }
-
-    private Map<String,Object> response(ServiceFavorite favorite){
-        return Map.of("id",favorite.getId(), "serviceId",favorite.getService().getId());
-    }
-}
-```
-
-### ServiceOfferingController.java
-
-```java
-package com.ga.HomeHub.controller;
-
-
-@Tag(name="ServiceOffering", description="HomeHub serviceoffering API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/services")
-public class ServiceOfferingController {
-    private final ServiceOfferingService serviceOfferingService;
-    @GetMapping
-    public Page<ServiceResponse> getAllServiceOffering(@RequestParam(required = false) Long categoryId, Pageable pageable){
-        return serviceOfferingService.getAllServiceOffering(categoryId, pageable);
-    }
-    @GetMapping("/{serviceId}")
-    public ServiceResponse getServiceOfferingById(@PathVariable Long serviceId){
-        return serviceOfferingService.getServiceResponseById(serviceId);
-    }
-    @PostMapping
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ResponseEntity<ServiceResponse> createServiceOffering(@Valid @RequestBody ServiceRequest request){
-        ServiceOffering service = serviceOfferingService.createServiceOffering(request);
-        return ResponseEntity.status(201).body(serviceOfferingService.toResponse(service));
-    }
-    @PutMapping("/{serviceId}")
-    @PreAuthorize("hasRole('PROVIDER')")
-    public ServiceResponse updateServiceOffering(@PathVariable Long serviceId, @Valid @RequestBody ServiceRequest request){
-        ServiceOffering service = serviceOfferingService.updateServiceOffering(serviceId, request);
-        return serviceOfferingService.toResponse(service);
-    }
-    @DeleteMapping("/{serviceId}")
-    @PreAuthorize("hasRole('PROVIDER')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivateServiceOffering(@PathVariable Long serviceId){
-        serviceOfferingService.deactivateServiceOffering(serviceId);
-    }
-    @GetMapping("/search")
-    public Page<ServiceResponse> searchServices(
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            Pageable pageable){
-
-        return serviceOfferingService.searchServices(name, categoryId, minPrice, maxPrice, pageable);
-    }
-}
+public record PortfolioRequest(String description,boolean emergencyEnabled){}
 ```
 
 ### ServiceReportController.java
 
 ```java
-package com.ga.HomeHub.controller;
-
-
-
-@Tag(name="ServiceReport", description="HomeHub servicereport API endpoints")
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/reports")
-public class ServiceReportController {
-    private final ServiceReportService service;
-    public record ReportRequest(@NotBlank String workDone, String materialsUsed, String recommendation){}
-    @GetMapping("/booking/{bookingId}")
-    public Map<String,Object> getReport(@PathVariable Long bookingId){
-        return response(service.getServiceReport(bookingId));
-    }
-    @PostMapping("/booking/{bookingId}")
-    @PreAuthorize("hasRole('PROVIDER')")
-    public Map<String,Object> submitReport(@PathVariable Long bookingId, @Valid @RequestBody ReportRequest request){
-        return response(service.submitServiceReport(bookingId, request.workDone(), request.materialsUsed(), request.recommendation()));
-    }
-
-    private Map<String,Object> response(ServiceReport report) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", report.getId());
-        result.put("bookingId", report.getBooking().getId());
-        result.put("workPerformed", report.getWorkPerformed());
-        result.put("materialsUsed", report.getMaterialsUsed());
-        result.put("recommendation", report.getRecommendations());
-        return result;
-    }
-}
+public record ReportRequest(@NotBlank @Size(max=3000) String workDone, @Size(max=3000) String materialsUsed, @Size(max=3000) String recommendation){}
 ```
 
 ### ServiceReviewController.java
 
 ```java
-package com.ga.HomeHub.controller;
-
-
-
-@Tag(name="ServiceReview", description="HomeHub servicereview API endpoints")
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/reviews")
-public class ServiceReviewController {
-    private final ServiceReviewService service;
-    public record ReviewRequest(@NotNull Long bookingId, @Min(1) @Max(5) int rating, String comment){}
-    @PostMapping
-    @PreAuthorize("hasRole('HOMEOWNER')")
-    public Map<String,Object> createReview(@Valid @RequestBody ReviewRequest request){
-        return response(service.createServiceReviw(request.bookingId(), request.rating(), request.comment()));
-    }
-    @GetMapping("/provider/{providerId}")
-    public List<Map<String,Object>> getProvider(@PathVariable Long providerId){
-        return service.providerReviews(providerId).stream().map(this::response).toList();
-    }
-
-    private Map<String,Object> response(ServiceReview review){
-        Map<String,Object> result = new HashMap<>();
-        result.put("id", review.getId());
-        result.put("bookingId", review.getBooking().getId());
-        result.put("rating", review.getRating());
-        result.put("providerId", review.getBooking().getService().getProvider().getId());
-        result.put("comment", review.getComment());
-        return result;
-    }
-}
+public record ReviewRequest(@NotNull Long bookingId, @Min(1) @Max(5) int rating, @Size(max=3000) String comment){}
 ```
 
-### UserController.java
-
-```java
-package com.ga.HomeHub.controller;
 
 
-
-@Tag(name="User", description="HomeHub user API endpoints")
-@RestController
-@AllArgsConstructor
-@RequestMapping("/api/users")
-public class UserController {
-    private final UserService userService;
-    @GetMapping("/profile")
-    public UserResponse getCurrentUserProfile(){
-        return userService.getCurrentUserProfile();
-    }
-    @PutMapping("/profile")
-    public UserResponse updateUserProfile(@Valid @RequestBody UpdateUserRequest request){
-        return userService.update(request);
-    }
-    @PutMapping("/change-password")
-    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request){
-        userService.changePassword(request);
-        return ResponseEntity.noContent().build(); //Status: 204 No Content, Body:(empty)
-    }
-    @PostMapping(value = "/profile-picture", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Map<String,String> uploadProfilePicture(@RequestParam MultipartFile file){
-        return Map.of("url",userService.picture(file));
-    }
-
-}
-```
-
+Phase 5 frontend consumers: Provider.jsx handles provider details, owned services and availability; Reschedules.jsx handles homeowner/provider requests and decisions; Bookings.jsx includes reports, assessments and booking history; Saved.jsx includes reviews, favorites, waitlists and notifications. See PHASE-5-INTEGRATION.md for verification limits.

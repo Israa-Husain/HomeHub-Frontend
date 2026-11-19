@@ -523,6 +523,96 @@
         }
       }
     },
+    "/api/providers/profile": {
+      "get": {
+        "tags": [
+          "Provider"
+        ],
+        "summary": "Get current provider profile",
+        "operationId": "getCurrentProviderProfile",
+        "responses": {
+          "200": {
+            "description": "Request completed successfully",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Provider"
+        ],
+        "summary": "Update current provider business profile",
+        "operationId": "updateProviderProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/providers/portfolio": {
       "put": {
         "tags": [
@@ -1060,6 +1150,83 @@
         }
       }
     },
+    "/api/availability/{availabilityId}": {
+      "put": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "Update own availability or blocked time period",
+        "operationId": "updateAvailability",
+        "parameters": [
+          {
+            "name": "availabilityId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvailabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "Delete availability",
+        "operationId": "deleteAvailability",
+        "parameters": [
+          {
+            "name": "availabilityId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          }
+        }
+      }
+    },
     "/api/admin/providers/{providerId}/approve": {
       "put": {
         "tags": [
@@ -1463,6 +1630,15 @@
         "parameters": [
           {
             "name": "categoryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "providerId",
             "in": "query",
             "required": false,
             "schema": {
@@ -2537,6 +2713,15 @@
               "type": "string",
               "format": "date"
             }
+          },
+          {
+            "name": "timeOff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -2547,7 +2732,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Availability"
+                    "$ref": "#/components/schemas/AvailabilityResponse"
                   }
                 }
               }
@@ -2560,7 +2745,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Availability"
+                    "$ref": "#/components/schemas/AvailabilityResponse"
                   }
                 }
               }
@@ -2573,7 +2758,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Availability"
+                    "$ref": "#/components/schemas/AvailabilityResponse"
                   }
                 }
               }
@@ -2586,7 +2771,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Availability"
+                    "$ref": "#/components/schemas/AvailabilityResponse"
                   }
                 }
               }
@@ -2599,7 +2784,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Availability"
+                    "$ref": "#/components/schemas/AvailabilityResponse"
                   }
                 }
               }
@@ -2629,7 +2814,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2639,7 +2824,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2649,7 +2834,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2659,7 +2844,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2669,7 +2854,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2700,7 +2885,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2710,7 +2895,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2720,7 +2905,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2730,7 +2915,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -2740,7 +2925,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/Availability"
+                  "$ref": "#/components/schemas/AvailabilityResponse"
                 }
               }
             }
@@ -3217,6 +3402,15 @@
             }
           },
           {
+            "name": "providerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
             "name": "minPrice",
             "in": "query",
             "required": false,
@@ -3286,6 +3480,37 @@
           },
           "404": {
             "description": "Resource not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageServiceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/services/mine": {
+      "get": {
+        "tags": [
+          "ServiceOffering"
+        ],
+        "summary": "Get current provider services including inactive offerings",
+        "operationId": "getCurrentProviderServices",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
@@ -3389,56 +3614,145 @@
         }
       }
     },
-    "/api/providers/profile": {
+    "/api/reviews/mine": {
+      "get": {
+        "tags": [
+          "ServiceReview"
+        ],
+        "summary": "Get current homeowner's submitted reviews",
+        "operationId": "getMyReviews",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reschedules": {
+      "get": {
+        "tags": [
+          "BookingReschedule"
+        ],
+        "summary": "Get current homeowner or provider reschedule requests",
+        "operationId": "getCurrentUserRequests",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "bookingId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reschedules/{id}": {
+      "get": {
+        "tags": [
+          "BookingReschedule"
+        ],
+        "summary": "Get authorized reschedule request details",
+        "operationId": "getRequestById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers/{providerId}": {
       "get": {
         "tags": [
           "Provider"
         ],
-        "summary": "Get current provider profile",
-        "operationId": "getCurrentProviderProfile",
+        "summary": "Get approved provider business details",
+        "operationId": "getProviderDetails",
+        "parameters": [
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Request completed successfully",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Access denied",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
+            "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
@@ -3896,6 +4210,103 @@
         }
       }
     },
+    "/api/booking/{bookingId}/history": {
+      "get": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Get recorded booking audit events for an authorized participant or admin",
+        "operationId": "getBookingHistory",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/booking/available-times": {
+      "get": {
+        "tags": [
+          "Booking"
+        ],
+        "summary": "Discover currently available appointment start times; no slot is reserved",
+        "operationId": "getAvailableAppointmentTimes",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "bookingType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "NORMAL",
+              "enum": [
+                "NORMAL",
+                "EMERGENCY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/verify": {
       "get": {
         "tags": [
@@ -4028,6 +4439,83 @@
         }
       }
     },
+    "/api/admin/providers": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List provider applications and optionally filter by existing status",
+        "operationId": "getProviderApplications",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "SUSPENDED"
+              ]
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/providers/{providerId}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Inspect provider application before approval",
+        "operationId": "getProviderApplication",
+        "parameters": [
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/waitlist/{id}": {
       "delete": {
         "tags": [
@@ -4085,43 +4573,6 @@
         ],
         "responses": {
           "200": {
-            "description": "Request completed successfully"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Access denied"
-          },
-          "404": {
-            "description": "Resource not found"
-          }
-        }
-      }
-    },
-    "/api/availability/{availabilityId}": {
-      "delete": {
-        "tags": [
-          "Availability"
-        ],
-        "summary": "Delete availability",
-        "operationId": "deleteAvailability",
-        "parameters": [
-          {
-            "name": "availabilityId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
             "description": "Request completed successfully"
           },
           "400": {
@@ -4288,6 +4739,9 @@
           "durationMinutes": {
             "type": "integer",
             "format": "int32"
+          },
+          "emergencyEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -4323,6 +4777,32 @@
           },
           "providerName": {
             "type": "string"
+          },
+          "categoryId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "providerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "categoryStatus": {
+            "type": "string"
+          },
+          "providerStatus": {
+            "type": "string"
+          },
+          "emergencyEnabled": {
+            "type": "boolean"
+          },
+          "providerEmergencyEnabled": {
+            "type": "boolean"
+          },
+          "emergencyEligible": {
+            "type": "boolean"
           }
         }
       },
@@ -4337,16 +4817,20 @@
           "approve"
         ]
       },
-      "PortfolioRequest": {
+      "ProviderRequest": {
         "type": "object",
         "properties": {
+          "businessName": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": {
             "type": "string"
-          },
-          "emergencyEnabled": {
-            "type": "boolean"
           }
-        }
+        },
+        "required": [
+          "businessName"
+        ]
       },
       "ProviderResponse": {
         "type": "object",
@@ -4363,6 +4847,23 @@
           },
           "providerStatus": {
             "type": "string"
+          },
+          "portfolioDescription": {
+            "type": "string"
+          },
+          "emergencyEnabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PortfolioRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "emergencyEnabled": {
+            "type": "boolean"
           }
         }
       },
@@ -4591,6 +5092,82 @@
           "responseDeadline": {
             "type": "string",
             "format": "date-time"
+          },
+          "providerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reportDeadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lateCancellation": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AvailabilityRequest": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "string"
+          },
+          "endTime": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "endTime",
+          "startTime"
+        ]
+      },
+      "AvailabilityResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "providerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "string"
+          },
+          "endTime": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "timeOff": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -4634,7 +5211,9 @@
             "minimum": 1
           },
           "comment": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 0
           }
         },
         "required": [
@@ -4662,32 +5241,22 @@
         "properties": {
           "workDone": {
             "type": "string",
-            "minLength": 1
+            "maxLength": 3000,
+            "minLength": 0
           },
           "materialsUsed": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 0
           },
           "recommendation": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 0
           }
         },
         "required": [
           "workDone"
-        ]
-      },
-      "ProviderRequest": {
-        "type": "object",
-        "properties": {
-          "businessName": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "businessName"
         ]
       },
       "BookingRequest": {
@@ -4725,102 +5294,6 @@
           "serviceId",
           "startTime"
         ]
-      },
-      "AvailabilityRequest": {
-        "type": "object",
-        "properties": {
-          "date": {
-            "type": "string",
-            "format": "date"
-          },
-          "startTime": {
-            "type": "string"
-          },
-          "endTime": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "date",
-          "endTime",
-          "startTime"
-        ]
-      },
-      "Availability": {
-        "type": "object",
-        "properties": {
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "provider": {
-            "$ref": "#/components/schemas/ProviderProfile"
-          },
-          "date": {
-            "type": "string",
-            "format": "date"
-          },
-          "startTime": {
-            "type": "string"
-          },
-          "endTime": {
-            "type": "string"
-          },
-          "timeOff": {
-            "type": "boolean"
-          },
-          "available": {
-            "type": "boolean"
-          }
-        }
-      },
-      "ProviderProfile": {
-        "type": "object",
-        "properties": {
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "user": {
-            "$ref": "#/components/schemas/User"
-          },
-          "businessName": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "portfolioDescription": {
-            "type": "string"
-          },
-          "emergencyEnabled": {
-            "type": "boolean"
-          },
-          "providerStatus": {
-            "type": "string",
-            "enum": [
-              "PENDING",
-              "APPROVED",
-              "SUSPENDED"
-            ]
-          }
-        }
       },
       "ResetPasswordRequest": {
         "type": "object",
@@ -4933,7 +5406,9 @@
             "format": "int32"
           },
           "comment": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 0
           }
         }
       },
@@ -5040,6 +5515,53 @@
             "type": "boolean"
           },
           "unsorted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageMapStringObject": {
+        "type": "object",
+        "properties": {
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortObject"
+          },
+          "pageable": {
+            "$ref": "#/components/schemas/PageableObject"
+          },
+          "empty": {
             "type": "boolean"
           }
         }

@@ -1,5 +1,5 @@
 import { useAuth } from "../context/AuthContext";
-import { post, put } from "../api";
+import { authApi } from "../api";
 import { imageUrl } from "../api/client";
 import { Link } from "react-router-dom";
 import { ActionForm, Field, Status } from "../components/Common";
@@ -27,7 +27,7 @@ export default function Account() {
           onSubmit={(values) => {
             const body = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value.trim()]));
             if (!body.firstName || !body.lastName) throw new Error("Enter your first and last name.");
-            return put("/users/profile", body);
+            return authApi.updateProfile(body);
           }}
           onSuccess={refresh}
         >
@@ -64,7 +64,7 @@ export default function Account() {
               throw new Error("Choose a JPG, PNG or WEBP image.");
             const body = new FormData();
             body.append("file", file);
-            return post("/users/profile-picture", body);
+            return authApi.uploadProfilePicture(body);
           }}
           onSuccess={refresh}
         >
@@ -84,7 +84,7 @@ export default function Account() {
           submit="Change password" pending="Changing password..."
           onSubmit={async ({ confirmPassword, ...values }, form) => {
             if (values.newPassword !== confirmPassword) throw new Error("The new passwords do not match.");
-            await put("/users/change-password", values);
+            await authApi.changePassword(values);
             form.reset();
           }}
           success="Your password has been changed."

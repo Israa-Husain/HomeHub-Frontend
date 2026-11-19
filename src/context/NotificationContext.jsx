@@ -1,130 +1,186 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { get, patch } from "../api";
-import { API_BASE, TOKEN_KEY, errorMessage } from "../api/client";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { notificationApi } from "../api";
+import { errorMessage, expireSession, notificationStreamUrl, TOKEN_KEY } from "../api/client";
+import { readNotificationEvents } from "../api/notificationStream";
 import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext(null);
 export function NotificationProvider({ children }) {
   const { user } = useAuth();
+  const token = user ? sessionStorage.getItem(TOKEN_KEY) : null;
   const [items, setItems] = useState([]);
-  const [ownerId, setOwnerId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [ownerToken, setOwnerToken] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [count, setCount] = useState(0);
   const [error, setError] = useState("");
-  const [connection, setConnection] = useState("Connecting");
+  const [streamError, setStreamError] = useState("");
+  const [connection, setConnection] = useState("Disconnected");
   const [revision, setRevision] = useState(0);
-  const [refreshIndex, setRefreshIndex] = useState(0);
-  const refresh = () => setRefreshIndex((value) => value + 1);
+  const syncHistory = useRef(null);
+  const refresh = useCallback(() => syncHistory.current?.(true), []);
+
   useEffect(() => {
-    if (!user) {
-      setItems([]);
-      setCount(0);
-      setOwnerId(null);
-      setLoaded(false);
-      setLoading(false);
-      setError("");
+    setItems([]);
+    setCount(0);
+    setOwnerToken(token);
+    setLoaded(false);
+    setError("");
+    setLoading(false);
+    if (!token) return;
+
+    const controller = new AbortController();
+    const { signal } = controller;
+    const active = () => !signal.aborted && token === sessionStorage.getItem(TOKEN_KEY);
+    let running = false;
+    let pending = false;
+
+    // Serialize refreshes so a slow response cannot overwrite a newer snapshot.
+    async function sync(showLoading = false) {
+      if (!active()) return;
+      pending = true;
+      if (showLoading) setLoading(true);
+      if (running) return;
+      running = true;
+
+      while (pending && active()) {
+        pending = false;
+        try {
+          const [history, unread] = await Promise.all([
+            notificationApi.history(signal),
+            notificationApi.unread(signal),
+          ]);
+          if (!active()) break;
+          setItems(history);
+          setCount(unread.count);
+          setLoaded(true);
+          setError("");
+        } catch (failure) {
+          if (active()) setError(errorMessage(failure));
+        }
+        if (active()) setLoading(false);
+      }
+      running = false;
+    }
+
+    syncHistory.current = sync;
+    sync(true);
+    return () => {
+      syncHistory.current = null;
+      controller.abort();
+    };
+  }, [token]);
+
+  useEffect(() => {
+    setStreamError("");
+    if (!token) {
       setConnection("Disconnected");
       return;
     }
-    let current = true;
-    setLoading(true);
-    if (ownerId !== user.id) {
-      setOwnerId(user.id);
-      setItems([]);
-      setCount(0);
-      setLoaded(false);
-      setError("");
-    }
-    Promise.all([get("/notifications"), get("/notifications/unread-count")])
-      .then(([history, unread]) => {
-        if (current) {
-          setOwnerId(user.id);
-          setLoaded(true);
-          setItems(history);
-          setCount(unread.count);
-          setError("");
-        }
-      })
-      .catch((failure) => {
-        if (current) { setOwnerId(user.id); setError(errorMessage(failure)); }
-      }).finally(() => { if (current) setLoading(false); });
-    return () => {
-      current = false;
-    };
-  }, [user?.id, refreshIndex]);
-  useEffect(() => {
-    if (!user) return;
+
     const controller = new AbortController();
-    let retry;
+    const { signal } = controller;
+    const active = () => !signal.aborted && token === sessionStorage.getItem(TOKEN_KEY);
+    const seen = new Set();
     let attempt = 0;
-    let watchdog;
+    let retry;
+    let newBookingEvent = false;
+
+    function reconcile() {
+      syncHistory.current?.();
+      if (newBookingEvent) {
+        newBookingEvent = false;
+        setRevision((value) => value + 1);
+      }
+    }
+
     async function connect() {
+      if (!active()) return;
       try {
-        setConnection("Connecting");
-        const streamToken = sessionStorage.getItem(TOKEN_KEY);
-        const response = await fetch(`${API_BASE}/notifications/stream`, {
+        const response = await fetch(notificationStreamUrl, {
           headers: {
             Accept: "text/event-stream",
-            Authorization: `Bearer ${streamToken}`,
+            Authorization: `Bearer ${token}`,
           },
-          signal: controller.signal,
+          signal,
         });
-        if (response.status === 401) {
-          if (!controller.signal.aborted && streamToken === sessionStorage.getItem(TOKEN_KEY))
-            window.dispatchEvent(new Event("homehub:unauthorized"));
-          return;
-        }
-        if (!response.ok || !response.body)
-          throw new Error("Stream unavailable");
-        if (!controller.signal.aborted) { setConnection("Live"); refresh(); }
-        attempt = 0;
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        while (!controller.signal.aborted) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          buffer = buffer.replaceAll("\r\n", "\n");
-          let boundary;
-          while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-            const event = buffer.slice(0, boundary);
-            buffer = buffer.slice(boundary + 2);
-            if (/^data:/m.test(event)) {
-              refresh();
-              setRevision((value) => value + 1);
-            }
+        if (!active()) return;
+        if (!response.ok) {
+          await response.body?.cancel();
+          if (!active()) return;
+          if (response.status === 401) {
+            expireSession(token);
+            return;
           }
+          if (response.status === 403) {
+            setConnection("Disconnected");
+            setStreamError("You don't have permission to subscribe to live updates.");
+            return;
+          }
+          throw new Error("Stream unavailable");
         }
+        if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
+          await response.body?.cancel();
+          throw new Error("Expected a notification event stream");
+        }
+
+        setConnection("Live");
+        reconcile();
+        await readNotificationEvents(response.body, (type, id) => {
+          if (!active()) return;
+          if (type === "booking" && id && !seen.has(id)) {
+            seen.add(id);
+            newBookingEvent = true;
+          }
+          // The service sends a refresh marker after each batch of booking events.
+          if (type === "refresh") {
+            attempt = 0;
+            reconcile();
+          }
+        });
       } catch {
-        /* History polling remains available while the stream reconnects. */
+        // History remains available while the stream reconnects.
       }
-      if (!controller.signal.aborted) {
+      if (active()) {
+        if (newBookingEvent) reconcile();
         setConnection("Reconnecting");
-        retry = setTimeout(connect, Math.min(30000, 2000 * 2 ** attempt++));
+        retry = setTimeout(connect, Math.min(30000, 2000 * 2 ** Math.min(attempt++, 4)));
       }
     }
+
+    setConnection("Connecting");
     connect();
-    watchdog = setInterval(() => {
-      refresh();
+    const fallback = setInterval(() => {
+      if (!active()) return;
+      reconcile();
       setRevision((value) => value + 1);
     }, 60000);
     return () => {
       controller.abort();
       clearTimeout(retry);
-      clearInterval(watchdog);
+      clearInterval(fallback);
     };
-  }, [user?.id]);
+  }, [token]);
+
   async function markRead(id) {
-    await patch(`/notifications/${id}/read`);
-    refresh();
+    await notificationApi.markRead(id);
+    if (sessionStorage.getItem(TOKEN_KEY) === token) refresh();
   }
+
+  const ownsHistory = !!token && ownerToken === token;
   return (
     <NotificationContext.Provider
-      value={{ items: ownerId === user?.id ? items : [], count: ownerId === user?.id ? count : 0,
-        error: ownerId === user?.id ? error : "", connection, revision, refresh, markRead,
-        loading: !!user && (ownerId !== user.id || loading), loaded: ownerId === user?.id && loaded }}
+      value={{
+        items: ownsHistory ? items : [],
+        count: ownsHistory ? count : 0,
+        error: ownsHistory ? error || streamError : "",
+        connection,
+        revision,
+        refresh,
+        markRead,
+        loading: !!token && (!ownsHistory || loading),
+        loaded: ownsHistory && loaded,
+      }}
     >
       {children}
     </NotificationContext.Provider>
